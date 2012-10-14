@@ -522,6 +522,14 @@ sched_child_thd_crt(spdid_t spdid, spdid_t dest_spd) { BUG(); return 0; }
 
 void cos_upcall_fn(upcall_type_t t, void *arg1, void *arg2, void *arg3)
 {
+  //  cos_syscall_mmap_cntl(int spdid, long op_flags_dspd, vaddr_t daddr, unsigned long mem_id)
+  //printk("JWW: Initializing NAIVE MEM_MAN\n");
+  void *hp = cos_get_vas_page();
+  cos_mmap_cntl(COS_MMAP_GRANT, 0, cos_spd_id(), (vaddr_t)hp, 0x11 << 28); // JWW
+  int *test = (int *) hp;
+  *test = 0xDEADBEEF;
+  printc("JWW: Dereferenced large address %x\n", *test);
+
 	switch (t) {
 	case COS_UPCALL_BOOTSTRAP:
 		if (cos_cpuid() == INIT_CORE) {

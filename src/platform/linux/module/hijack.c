@@ -45,7 +45,6 @@
 #include "../../../kernel/include/mmap.h"
 #include "../../../kernel/include/per_cpu.h"
 #include "../../../kernel/include/shared/consts.h"
-
 #include "./hw_ints.h"
 
 #include "./kconfig_checks.h"
@@ -2025,7 +2024,8 @@ static int open_checks(void)
 
 static int aed_open(struct inode *inode, struct file *file)
 {
-	pte_t *pte = lookup_address_mm(current->mm, COS_INFO_REGION_ADDR);
+  printk("RETURNING FROM AED_OPEN\n");
+  pte_t *pte = lookup_address_mm(current->mm, COS_INFO_REGION_ADDR);
 	pgd_t *pgd;
 	void* data_page;
 
@@ -2305,7 +2305,6 @@ static struct file_operations proc_aed_fops = {
 static int make_proc_aed(void)
 {
 	struct proc_dir_entry *ent;
-
 	ent = create_proc_entry("aed", 0222, NULL);
 	if(ent == NULL){
 		printk("cos: make_proc_aed : Failed to register /proc/aed\n");
@@ -2318,11 +2317,15 @@ static int make_proc_aed(void)
 
 static inline void hw_int_override_all(void)
 {
+    	printk("Got to initializing the CPU\n");
 	hw_int_override_sysenter(sysenter_interposition_entry);
+	printk("Finished overriding systenter\n");
 	hw_int_override_pagefault(page_fault_interposition);
+	printk("Finished overriding pagefault\n");
 	hw_int_override_idt(0, div_fault_interposition, 0, 0);
+	printk("Finished overriding div_fault\n");
 	hw_int_override_idt(0xe9, reg_save_interposition, 0, 3);
-
+	printk("Finished overriding reg_save\n");
 	return;
 }
 static void hw_init_CPU(void)
@@ -2343,12 +2346,13 @@ static void hw_init_other_cores(void *param)
 
 static int asym_exec_dom_init(void)
 {
+
 	printk("cos: Installing the hijack module.\n");
 	/* pt_regs in this linux version has changed... */
 	BUG_ON(sizeof(struct pt_regs) != (17*sizeof(long)));
-
 	if (make_proc_aed())
 		return -1;
+
 
 	hw_init_CPU();
 

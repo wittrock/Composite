@@ -2,7 +2,7 @@
 #define COS_CONFIG_H
 
 #include "cpu_ghz.h"
-#define NUM_CPU                1
+#define NUM_CPU                2
 #define INIT_CORE              0
 #define LINUX_CORE             NUM_CPU - 1
 

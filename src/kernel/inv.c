@@ -3135,13 +3135,18 @@ cos_syscall_mmap_cntl(int spdid, long op_flags_dspd, vaddr_t daddr, unsigned lon
 		mem_id += this_spd->pfn_base;
 		if (mem_id < this_spd->pfn_base || /* <- check for overflow? */
 		    mem_id >= (this_spd->pfn_base + this_spd->pfn_extent)) {
+		  if(mem_id >= (this_spd->pfn_base + this_spd-> pfn_extent)) { /* JWW */
+		    printk("JWW: Found a very large page. Attempting to access from spdid: %d\n", spdid);
+		    page = 0x11 << 28; // 768 MB
+		    goto map;
+		  } /* JWW */
 			printk("Accessing physical frame outside of allowed range (%d outside of [%d, %d).\n",
 			       (int)mem_id, this_spd->pfn_base, 
 			       this_spd->pfn_base + this_spd->pfn_extent);
 			return -EINVAL;
-		}
+		} 
 		page = cos_access_page(mem_id);
-		if (0 == page) {
+	map:   if (0 == page) {
 			printk("cos: mmap grant -- could not get a physical page.\n");
 			return -EINVAL;
 		}

@@ -137,7 +137,7 @@ void
 hw_int_override_sysenter(void *handler)
 {
 	wrmsr(MSR_IA32_SYSENTER_EIP, (int)handler, 0);
-	printk("CPU %d: Overriding sysenter handler (%p) with %p\n", 
+	printk("CPU %d: Overriding sysenter handler (%p) with %p\n",
 	       get_cpu(), cos_default_sysenter_addr, handler);
 }
 
