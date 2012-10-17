@@ -246,6 +246,7 @@ mapping_lookup(spdid_t spdid, vaddr_t addr)
 static struct mapping *
 mapping_crt(struct mapping *p, struct frame *f, spdid_t dest, vaddr_t to)
 {
+	printc("JWW: calling mapping_crt in mem_man.c\n");
 	struct comp_vas *cv = cvas_lookup(dest);
 	struct mapping *m = NULL;
 	long idx = to >> PAGE_SHIFT;
@@ -393,14 +394,21 @@ dealloc:
 
 vaddr_t mman_alias_page(spdid_t s_spd, vaddr_t s_addr, spdid_t d_spd, vaddr_t d_addr)
 {
+	printc("JWW: Calling mman_alias_page in mem_man.c\n");
 	struct mapping *m, *n;
 	vaddr_t ret = 0;
 
 	LOCK();
 	m = mapping_lookup(s_spd, s_addr);
-	if (!m) goto done; 	/* -EINVAL */
+	if (!m){
+		printc("mapping lookup failed!\n");
+		goto done; 	/* -EINVAL */
+	}
 	n = mapping_crt(m, m->f, d_spd, d_addr);
-	if (!n) goto done;
+	if (!n) { 
+		printc("mapping crt failed!\n");
+		goto done;
+	}
 
 	assert(n->addr  == d_addr);
 	assert(n->spdid == d_spd);
@@ -522,13 +530,19 @@ sched_child_thd_crt(spdid_t spdid, spdid_t dest_spd) { BUG(); return 0; }
 
 void cos_upcall_fn(upcall_type_t t, void *arg1, void *arg2, void *arg3)
 {
-  //  cos_syscall_mmap_cntl(int spdid, long op_flags_dspd, vaddr_t daddr, unsigned long mem_id)
-  //printk("JWW: Initializing NAIVE MEM_MAN\n");
-  void *hp = cos_get_vas_page();
-  cos_mmap_cntl(COS_MMAP_GRANT, 0, cos_spd_id(), (vaddr_t)hp, 0x11 << 28); // JWW
-  int *test = (int *) hp;
-  *test = 0xDEADBEEF;
-  printc("JWW: Dereferenced large address %x\n", *test);
+	//  cos_syscall_mmap_cntl(int spdid, long op_flags_dspd, vaddr_t daddr, unsigned long mem_id)
+	//printk("JWW: Initializing NAIVE MEM_MAN\n");
+	/* void *hp = cos_get_vas_page(); */
+	/* cos_mmap_cntl(COS_MMAP_GRANT, 0, cos_spd_id(), (vaddr_t)hp, 0x11 << 28); // JWW */
+	/* int *test = (int *) hp; */
+	/* *test = 0xDEADBEEF; */
+	/* printc("JWW: Dereferenced large address %x\n", *test); */
+
+	/* void *hp2 = cos_get_vas_page(); */
+	/* cos_mmap_cntl(COS_MMAP_GRANT, 0, cos_spd_id(), (vaddr_t)hp2, (0x11 << 28) + (COS_MAX_MEMORY * (1 << 13))); // JWW */
+	/* int *test2 = (int *) hp2; */
+	/* *test2 = 0xDEADBEEF; */
+	/* printc("JWW: Dereferenced second large address %x\n", *test2); */
 
 	switch (t) {
 	case COS_UPCALL_BOOTSTRAP:

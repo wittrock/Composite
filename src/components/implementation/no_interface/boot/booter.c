@@ -167,8 +167,15 @@ static int boot_spd_map_memory(struct cobj_header *h, spdid_t spdid, vaddr_t com
 
 		while (left > 0) {
 			dsrc = cos_get_vas_page();
-			if ((vaddr_t)dsrc != __mman_get_page(cos_spd_id(), (vaddr_t)dsrc, 0)) BUG();
-			if (dest_daddr != (__mman_alias_page(cos_spd_id(), (vaddr_t)dsrc, spdid, dest_daddr))) BUG();
+			if ((vaddr_t)dsrc != __mman_get_page(cos_spd_id(), (vaddr_t)dsrc, 0)) {
+				printc("JWW: error in boot_spd_map_memory mman_get_page: dsrc: %x\n", dsrc);
+				BUG();
+			}
+			vaddr_t alias_ret = (__mman_alias_page(cos_spd_id(), (vaddr_t)dsrc, spdid, dest_daddr));
+			if (dest_daddr != alias_ret) {
+				printc("JWW: error in boot_spd_map_memory mman_alias_page: dest_daddr: %x, return val: %x\n", dest_daddr, alias_ret);
+				BUG();
+			}
 
 			dest_daddr += PAGE_SIZE;
 			left       -= PAGE_SIZE;

@@ -3135,11 +3135,14 @@ cos_syscall_mmap_cntl(int spdid, long op_flags_dspd, vaddr_t daddr, unsigned lon
 		mem_id += this_spd->pfn_base;
 		if (mem_id < this_spd->pfn_base || /* <- check for overflow? */
 		    mem_id >= (this_spd->pfn_base + this_spd->pfn_extent)) {
-		  if(mem_id >= (this_spd->pfn_base + this_spd-> pfn_extent)) { /* JWW */
-		    printk("JWW: Found a very large page. Attempting to access from spdid: %d\n", spdid);
-		    page = 0x11 << 28; // 768 MB
-		    goto map;
-		  } /* JWW */
+			
+			/* if(mem_id >= (this_spd->pfn_base + this_spd-> pfn_extent)) { /\* JWW *\/ */
+			/* 	printk("JWW: Found a very large page. Attempting to access from spdid: %d\n", spdid); */
+			/* 	//				page = 0x11 << 28; // 768 MB */
+			/* 	page = (0x11 << 28) + (COS_MAX_MEMORY * (1 << 13)); // JWW */
+			/* 	goto map; */
+			/* } /\* JWW *\/ */
+			
 			printk("Accessing physical frame outside of allowed range (%d outside of [%d, %d).\n",
 			       (int)mem_id, this_spd->pfn_base, 
 			       this_spd->pfn_base + this_spd->pfn_extent);
