@@ -10,7 +10,8 @@
 static struct cos_page cos_pages[COS_MAX_MEMORY];
 
 /* JWW */
-static paddr_t pages_start = 0x11 << 28; // 768 MB
+//static paddr_t pages_start = 0x11 << 28; // 768 MB
+static paddr_t pages_start = 0x30000000 - ((1<<13) * COS_MAX_MEMORY); // 768 MB
 static paddr_t pages_extent = (1 << 13) * COS_MAX_MEMORY; // 4K pages * (# of pages)
 /* END JWW */
 
