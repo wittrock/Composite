@@ -3133,6 +3133,7 @@ cos_syscall_mmap_cntl(int spdid, long op_flags_dspd, vaddr_t daddr, unsigned lon
 	switch(op) {
 	case COS_MMAP_GRANT:
 		mem_id += this_spd->pfn_base;
+
 		if (mem_id < this_spd->pfn_base || /* <- check for overflow? */
 		    mem_id >= (this_spd->pfn_base + this_spd->pfn_extent)) {
 			
@@ -3149,6 +3150,7 @@ cos_syscall_mmap_cntl(int spdid, long op_flags_dspd, vaddr_t daddr, unsigned lon
 			return -EINVAL;
 		} 
 		page = cos_access_page(mem_id);
+		printk("mmap_cntl GRANT: spd: %d, mem_id: %x page: %x\n", spdid, mem_id, page);
 	map:   if (0 == page) {
 			printk("cos: mmap grant -- could not get a physical page.\n");
 			return -EINVAL;

@@ -224,7 +224,7 @@ __mman_get_page(spdid_t spd, vaddr_t addr, int flags)
 {
 	if (cos_mmap_cntl(COS_MMAP_GRANT, 0, cos_spd_id(), addr, frame_frontier++)) BUG();
 	if (!init_hp){
-		printc("initializing heap! %lu\n", addr);
+		printc("initializing heap! %x\n", addr);
 		init_hp = addr;
 	}
 	return addr;
@@ -238,7 +238,7 @@ __mman_alias_page(spdid_t s_spd, vaddr_t s_addr, spdid_t d_spd, vaddr_t d_addr)
 
 	assert(init_hp);
 	fp = __vpage2frame(s_addr);
-	printc("JWW alias page: fp: %x\n", fp);
+	printc("JWW alias page: fp: %x src_v: %x dest_v: %x\n", fp, s_addr, d_addr);
 	assert(fp >= 0);
 	if (cos_mmap_cntl(COS_MMAP_GRANT, 0, d_spd, d_addr, fp)) BUG();
 	return d_addr;
