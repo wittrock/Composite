@@ -10,7 +10,6 @@
 static struct cos_page cos_pages[COS_MAX_MEMORY];
 
 /* JWW */
-//static paddr_t pages_start = 0x11 << 28; // 768 MB
 static paddr_t pages_start = 0x30000000 - ((PAGE_SIZE) * COS_MAX_MEMORY); // 768 MB
 static paddr_t pages_extent = (PAGE_SIZE) * COS_MAX_MEMORY; // 4K pages * (# of pages)
 /* END JWW */
@@ -79,7 +78,7 @@ int cos_paddr_to_cap(paddr_t pa)
 
 	/* return 0; */
 
-	return ( (pa - pages_start) / (1 << 13) );
+	return ( (pa - pages_start) / (PAGE_SIZE) );
 }   
 
 paddr_t cos_access_page(unsigned long cap_no)
