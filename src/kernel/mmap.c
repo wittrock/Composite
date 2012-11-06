@@ -7,7 +7,7 @@
 
 #include "include/mmap.h"
 
-static struct cos_page cos_pages[COS_MAX_MEMORY];
+static struct cos_page cos_kernel_pages[COS_KERNEL_MEMORY];
 
 /* JWW */
 static paddr_t pages_start = 0x30000000 - ((PAGE_SIZE) * COS_MAX_MEMORY); // 768 MB
@@ -25,17 +25,15 @@ void cos_init_memory(void)
 	
 	int i;
 
-	/* for (i = 0 ; i < COS_MAX_MEMORY ; i++) { */
-	/* 	void *r = cos_alloc_page(); */
-	/* 	if (NULL == r) { */
-	/* 		printk("cos: ERROR -- could not allocate page for cos memory\n"); */
-	/* 	} */
-	/* 	cos_pages[i].addr = (paddr_t)va_to_pa(r); */
-	/* } */
+	for (i = 0 ; i < COS_KERNEL_MEMORY ; i++) {
+		void *r = cos_alloc_page();
+		if (NULL == r) {
+			printk("cos: ERROR -- could not allocate page for cos memory\n");
+		}
+		cos_kernel_pages[i].addr = (paddr_t)va_to_pa(r);
+	}
 
-	/* return; */
-
-	
+	return;
 }
 
 void cos_shutdown_memory(void)
@@ -46,13 +44,13 @@ void cos_shutdown_memory(void)
 	 * Mostly because the kernel won't have a mapping into user memory at all anymore. 
 	 * The mem_mgr will just request it all, and manage it later.
 	 */
-	/* int i; */
+	int i;
 
-	/* for (i = 0 ; i < COS_MAX_MEMORY ; i++) { */
-	/* 	paddr_t addr = cos_pages[i].addr; */
-	/* 	cos_free_page(pa_to_va((void*)addr)); */
-	/* 	cos_pages[i].addr = 0; */
-	/* } */
+	for (i = 0 ; i < COS_KERNEL_MEMORY ; i++) {
+		paddr_t addr = cos_kernel_pages[i].addr;
+		cos_free_page(pa_to_va((void*)addr));
+		cos_kernel_pages[i].addr = 0;
+	}
 }
 
 /*
@@ -63,23 +61,22 @@ void cos_shutdown_memory(void)
  */
 int cos_paddr_to_cap(paddr_t pa)
 {
-	/* 
-	 * In the implementation I'm intending, there'll be just some math here.
-	 * All we'll need to do is take the pa, subtract the base pa, and divide by 4k.
-	 */
+	return ( (pa - pages_start) / (PAGE_SIZE));
+}
 
-	/* int i; */
+int cos_paddr_to_kernel_cap(paddr_t pa) 
+{
+	/* Will we ever need this? */
 
-	/* for (i = 0 ; i < COS_MAX_MEMORY ; i++) { */
-	/* 	if (cos_pages[i].addr == pa) { */
-	/* 		return i; */
-	/* 	} */
-	/* } */
+	int i;
+	for (i = 0 ; i < COS_KERNEL_MEMORY ; i++) {
+		if (cos_kernel_pages[i].addr == pa) {
+			return i;
+		}
+	}
 
-	/* return 0; */
-
-	return ( (pa - pages_start) / (PAGE_SIZE) );
-}   
+	return 0;
+}
 
 paddr_t cos_access_page(unsigned long cap_no)
 {
@@ -88,12 +85,18 @@ paddr_t cos_access_page(unsigned long cap_no)
 	paddr_t addr;
 
 	if (cap_no > COS_MAX_MEMORY) return 0;
-	/* addr = cos_pages[cap_no].addr; */
-	/* assert(addr); */
-
-	/* return addr; */
-	
 	addr = ((cap_no * (PAGE_SIZE)) + pages_start);
+	assert(addr >= pages_start);
+	return addr;
+}
+
+paddr_t cos_access_kernel_page (unsigned long cap_no)
+{
+	paddr_t addr;
+
+	if (cap_no > COS_KERNEL_MEMORY) return 0;
+	addr = cos_kernel_pages[cap_no].addr;
 	assert(addr);
 	return addr;
+
 }

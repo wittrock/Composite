@@ -3114,6 +3114,7 @@ COS_SYSCALL int
 cos_syscall_mmap_cntl(int spdid, long op_flags_dspd, vaddr_t daddr, unsigned long mem_id)
 {
 	short int op, flags, dspd_id;
+	short int kern_access;
 	paddr_t page;
 	int ret = 0;
 	struct spd *spd, *this_spd;
@@ -3129,6 +3130,9 @@ cos_syscall_mmap_cntl(int spdid, long op_flags_dspd, vaddr_t daddr, unsigned lon
 		       spdid, dspd_id, (unsigned int)daddr);
 		return -1;
 	}
+
+	/* Do we want to access kernel-region memory here? */
+	kern_access = flags & 0x0001;
 
 	switch(op) {
 	case COS_MMAP_GRANT:
@@ -3148,8 +3152,12 @@ cos_syscall_mmap_cntl(int spdid, long op_flags_dspd, vaddr_t daddr, unsigned lon
 			       (int)mem_id, this_spd->pfn_base, 
 			       this_spd->pfn_base + this_spd->pfn_extent);
 			return -EINVAL;
-		} 
-		page = cos_access_page(mem_id);
+		}
+		if (!kern_access) {
+			page = cos_access_page(mem_id);
+		} else {
+			page = cos_access_kernel_page(mem_id);
+		}
 		printk("mmap_cntl GRANT: spd: %d, mem_id: %x page: %x\n", spdid, mem_id, page);
 	map:   if (0 == page) {
 			printk("cos: mmap grant -- could not get a physical page.\n");

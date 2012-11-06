@@ -55,25 +55,57 @@ struct mapping;
 /* A tagged union, where the tag holds the number of maps: */
 struct frame {
 	int nmaps;
+	short int is_kern;
 	union {
 		struct mapping *m;  /* nmaps > 0 : root of all mappings */
 		vaddr_t addr;	    /* nmaps = -1: local mapping */
 		struct frame *free; /* nmaps = 0 : no mapping */
+
 	} c;
-} frames[COS_MAX_MEMORY];
+};
+
+struct frame frames[COS_MAX_MEMORY];
 struct frame *freelist;
 
-static inline int  frame_index(struct frame *f) { return f-frames; }
-static inline int  frame_nrefs(struct frame *f) { return f->nmaps; }
+/* JWW */
+struct frame kern_frames[COS_KERNEL_MEMORY];
+struct frame *kern_freelist;
+
+static inline int  frame_index(struct frame *f) { 
+	if (!(f->is_kern)) {
+		return f-frames;
+	} else { 
+		return f-kern_frames; 
+	}
+}
+static inline int  frame_nrefs(struct frame *f) { return f->nmaps;}
 static inline void frame_ref(struct frame *f)   { f->nmaps++; }
 
+/* JWW */
+/* static inline int  kern_frame_index(struct frame *f) { return f-kern_frames; } */
+/* static inline int  kern_frame_nrefs(struct frame *f) { return f->nmaps; } */
+/* static inline void kern_frame_ref(struct frame *f)   { f->nmaps++; } */
+/* JWW */
+
 static inline struct frame *
-frame_alloc(void)
+frame_alloc(int use_kern_mem)
 {
-	struct frame *f = freelist;
+	struct frame *f;
+
+	if (!use_kern_mem) {
+		f = freelist;
+	} else {
+		f = kern_freelist;
+	}
 
 	if (!f) return NULL;
-	freelist = f->c.free;
+	
+	if (!use_kern_mem) {
+		freelist = f->c.free;
+	} else {
+		kern_freelist = f->c.free;
+	}
+
 	f->nmaps = 0;
 	f->c.m   = NULL;
 
@@ -86,8 +118,13 @@ frame_deref(struct frame *f)
 	assert(f->nmaps > 0);
 	f->nmaps--; 
 	if (f->nmaps == 0) {
-		f->c.free = freelist;
-		freelist  = f;
+		if (!(f->is_kern)) {
+			f->c.free = kern_freelist;
+			kern_freelist  = f;
+		} else {
+			f->c.free = kern_freelist;
+			kern_freelist  = f;
+		}
 	}
 }
 
@@ -99,10 +136,28 @@ frame_init(void)
 	for (i = 0 ; i < COS_MAX_MEMORY-1 ; i++) {
 		frames[i].c.free = &frames[i+1];
 		frames[i].nmaps  = 0;
+		frames[i].is_kern = 0;
 	}
 	frames[COS_MAX_MEMORY-1].c.free = NULL;
+
 	freelist = &frames[0];
 }
+
+/* JWW */
+static void
+kern_frame_init(void)
+{
+	int i;
+
+	for (i = 0 ; i < COS_KERNEL_MEMORY-1 ; i++) {
+		kern_frames[i].c.free = &kern_frames[i+1];
+		kern_frames[i].nmaps  = 0;
+		kern_frames[i].is_kern = 1;
+	}
+	kern_frames[COS_KERNEL_MEMORY-1].c.free = NULL;
+	kern_freelist = &kern_frames[0];
+}
+/* /JWW */
 
 static inline void
 mm_init(void)
@@ -110,19 +165,20 @@ mm_init(void)
 	printc("mm init as thread %d\n", cos_get_thd_id());
 
 	frame_init();
+	kern_frame_init();
 }
 
 /*************************************/
 /*** Memory allocation shenanigans ***/
 /*************************************/
 
-static inline struct frame *frame_alloc(void);
+static inline struct frame *frame_alloc(int use_kern_mem);
 static inline int frame_index(struct frame *f);
 static inline void *
 __page_get(void)
 {
 	void *hp = cos_get_vas_page();
-	struct frame *f = frame_alloc();
+	struct frame *f = frame_alloc(0);
 
 	assert(hp && f);
 	frame_ref(f);
@@ -266,11 +322,11 @@ mapping_crt(struct mapping *p, struct frame *f, spdid_t dest, vaddr_t to)
 	cvas_ref(cv);
 	m = cslab_alloc_mapping();
 	if (!m) goto collision;
-
+	
 	if (cos_mmap_cntl(COS_MMAP_GRANT, 0, dest, to, frame_index(f))) {
 		printc("mem_man: could not grant at %x:%d\n", dest, (int)to);
 		goto no_mapping;
-	}
+	} 
 	mapping_init(m, dest, to, p, f);
 	assert(!p || frame_nrefs(f) > 0);
 	frame_ref(f);
@@ -368,12 +424,20 @@ mapping_del(struct mapping *m)
 
 vaddr_t mman_get_page(spdid_t spd, vaddr_t addr, int flags)
 {
+
+	/* JWW */
+	int use_kern_mem = 0;
+	if (flags & 1) {
+		use_kern_mem = 1;
+	}
+	/* / JWW */
 	struct frame *f;
 	struct mapping *m = NULL;
 	vaddr_t ret = -1;
 
 	LOCK();
-	f = frame_alloc();
+	f = frame_alloc(use_kern_mem);
+	
 	if (!f) goto done; 	/* -ENOMEM */
 	assert(frame_nrefs(f) == 0);
 	frame_ref(f);
@@ -389,6 +453,7 @@ done:
 	return ret;
 dealloc:
 	frame_deref(f);
+
 	goto done;		/* -EINVAL */
 }
 
