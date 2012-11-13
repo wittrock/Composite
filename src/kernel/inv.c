@@ -3221,7 +3221,7 @@ cos_syscall_pfn_cntl(int spdid, long op_dspd, unsigned int mem_id, int extent)
 	/* FIXME: permission check */
 //	if (end >= spd->pfn_base + mem_id) return -EINVAL;
 
-	switch(op) {
+	switch(op){ 
 	case COS_PFN_GRANT:
 		/* Given "grant" access to the destination component for the pfn range */
 		dspd->pfn_base   = mem_id;

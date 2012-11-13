@@ -306,6 +306,7 @@ mapping_crt(struct mapping *p, struct frame *f, spdid_t dest, vaddr_t to)
 	struct comp_vas *cv = cvas_lookup(dest);
 	struct mapping *m = NULL;
 	long idx = to >> PAGE_SHIFT;
+	long flags = 0;
 
 	assert(!p || p->f == f);
 	assert(dest && to);
@@ -322,8 +323,12 @@ mapping_crt(struct mapping *p, struct frame *f, spdid_t dest, vaddr_t to)
 	cvas_ref(cv);
 	m = cslab_alloc_mapping();
 	if (!m) goto collision;
-	
-	if (cos_mmap_cntl(COS_MMAP_GRANT, 0, dest, to, frame_index(f))) {
+
+	if (f->is_kern) {
+		flags |= MMAP_KERN;
+	}
+
+	if (cos_mmap_cntl(COS_MMAP_GRANT, flags, dest, to, frame_index(f))) {
 		printc("mem_man: could not grant at %x:%d\n", dest, (int)to);
 		goto no_mapping;
 	} 
@@ -380,7 +385,6 @@ __mapping_destroy(struct mapping *m)
 	assert(m == cvect_lookup(cv->pages, m->addr >> PAGE_SHIFT));
 	cvect_del(cv->pages, m->addr >> PAGE_SHIFT);
 	cvas_deref(cv);
-
 	idx = cos_mmap_cntl(COS_MMAP_REVOKE, 0, m->spdid, m->addr, 0);
 	assert(idx == frame_index(m->f));
 	frame_deref(m->f);

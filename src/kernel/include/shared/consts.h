@@ -114,4 +114,6 @@ struct pt_regs {
 #define CPUID_OFFSET 1
 #define THDID_OFFSET 2
 
+#define MMAP_KERN 1 << 16
+
 #endif

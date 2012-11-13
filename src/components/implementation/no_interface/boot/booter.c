@@ -11,6 +11,9 @@ extern struct cos_component_information cos_comp_info;
 struct cobj_header *hs[MAX_NUM_SPDS+1];
 
 struct cos_sched_data_area cos_sched_notifications[NUM_CPU];
+void* cos_kernel_visible_memory[MAX_NUM_SPDS * 2];
+int kern_vis_mem_boundary = 0;
+int kern_vis_mem_used = 0;
 
 /* dependencies */
 #include <boot_deps.h>
@@ -44,7 +47,10 @@ boot_spd_set_symbs(struct cobj_header *h, spdid_t spdid, struct cos_component_in
 {
 	int i;
 
-	if (cos_spd_cntl(COS_SPD_UCAP_TBL, spdid, ci->cos_user_caps, 0)) BUG();
+	//	if (__mman_revoke_page(spdid, ci->cos_user_caps, 0)) BUG();
+	//if (__mman_get_page(spdid, ci->cos_user_caps, 1)) BUG();
+	if (cos_spd_cntl(COS_SPD_UCAP_TBL, spdid, ci->cos_user_caps, 0)) BUG();	
+
 	if (cos_spd_cntl(COS_SPD_UPCALL_ADDR, spdid, ci->cos_upcall_entry, 0)) BUG();
 	for (i = 0 ; i < COS_NUM_ATOMIC_SECTIONS/2 ; i++) {
 		if (cos_spd_cntl(COS_SPD_ATOMIC_SECT, spdid, ci->cos_ras[i].start, i*2)) BUG();
@@ -52,6 +58,22 @@ boot_spd_set_symbs(struct cobj_header *h, spdid_t spdid, struct cos_component_in
 	}
 
 	return 0;
+}
+
+
+/* 
+ * JWW
+ * This function determines if a component is a scheduler by checking if cos_sched_notifications
+ * is adjacent to cos_sched_notifications_post. 
+ * If it is a scheduler, the scheduler event notification region will be returned.
+ * Else, we'll return 0.
+ */
+static vaddr_t
+boot_symb_sched_data(struct cos_component_information *ci)
+{
+	vaddr_t csn = ci->cos_sched_info;
+	if (csn + sizeof(int) == ci->cos_sched_info_post) return 0;
+	return csn;
 }
 
 static int 
@@ -136,6 +158,20 @@ boot_symb_process(struct cobj_header *h, spdid_t spdid, vaddr_t heap_val,
 	comp_info_record(h, spdid, ci);
 }
 
+static void *boot_get_kern_vis_vas_page () {
+	if (kern_vis_mem_boundary < MAX_NUM_SPDS - 1) {
+		return cos_kernel_visible_memory[kern_vis_mem_boundary++];
+	}
+	return NULL;
+}
+
+static int boot_use_kern_vis_vas_page () {
+	if (kern_vis_mem_used < MAX_NUM_SPDS - 1) {
+		return kern_vis_mem_used++;
+	}
+	return NULL;
+}
+
 static vaddr_t boot_spd_end(struct cobj_header *h)
 {
 	struct cobj_sect *sect;
@@ -149,25 +185,70 @@ static vaddr_t boot_spd_end(struct cobj_header *h)
 
 static int boot_spd_map_memory(struct cobj_header *h, spdid_t spdid, vaddr_t comp_info)
 {
+
 	unsigned int i;
 	vaddr_t dest_daddr;
+	vaddr_t ucap_tbl;
+	vaddr_t sched_info;
 
 	local_md[spdid].spdid      = spdid;
 	local_md[spdid].h          = h;
 	local_md[spdid].page_start = cos_get_heap_ptr();
 	local_md[spdid].comp_info  = comp_info;
+
+	/* 
+	 * In here, look through the cobj_sect's and find the comp_info structure.
+	 * Use that to find the addresses of the ucap table and the scheduler event notification region if there is one. 
+	 * Then when you're mapping, make a kernel-access call to mman_get_page if you're mapping either of those addresses. 
+	 */
+	for (i = 0 ; i < h->nsect ; i++) {
+		struct cobj_sect *sect;
+		int j;
+
+		sect       = cobj_sect_get(h, i);
+		for (j = 0 ; j < cobj_sect_size(h, i) ; j += PAGE_SIZE) {
+			vaddr_t cur_addr = sect->vaddr + j;
+
+			if (cur_addr == comp_info) {
+				char *section = cobj_sect_contents(h, i);
+				struct cos_component_information *info = (struct cos_component_information *) (section + j);
+				ucap_tbl = info->cos_user_caps;
+				sched_info = boot_symb_sched_data(info);
+				break;
+			}
+		}
+		
+	}
+
 	for (i = 0 ; i < h->nsect ; i++) {
 		struct cobj_sect *sect;
 		char *dsrc;
 		int left;
+		int mman_flags = 0;
 
 		sect       = cobj_sect_get(h, i);
 		dest_daddr = sect->vaddr;
 		left       = cobj_sect_size(h, i);
 
 		while (left > 0) {
-			dsrc = cos_get_vas_page();
-			if ((vaddr_t)dsrc != __mman_get_page(cos_spd_id(), (vaddr_t)dsrc, 0)) {
+			if (dest_daddr == ucap_tbl || dest_daddr == sched_info) {
+				mman_flags = MMAP_KERN;
+				/* jww; use memory allocator you write
+				 * to get a vas from within the
+				 * "kernel visible page" vas region
+				 * (it should also check to make sure
+				 * it doesn't try and use a vas page
+				 * that has been used by the normal
+				 * heap ...i.e. as pointed to by
+				 * init_hp) 
+				 */
+				dsrc = boot_get_kern_vis_vas_page();
+				assert(dsrc);
+			} else {
+				dsrc = cos_get_vas_page();
+			}
+
+			if ((vaddr_t)dsrc != __mman_get_page(cos_spd_id(), (vaddr_t)dsrc, mman_flags)) {
 				printc("JWW: error in boot_spd_map_memory mman_get_page: dsrc: %x\n", dsrc);
 				BUG();
 			}
@@ -186,12 +267,37 @@ static int boot_spd_map_memory(struct cobj_header *h, spdid_t spdid, vaddr_t com
 	return 0;
 }
 
+//static int check_kern_vis_pages (
+
 static int boot_spd_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t comp_info)
 {
 	unsigned int i;
 	char *start_page;
-	
+	vaddr_t ucap_tbl;
+	vaddr_t sched_info;	
+
 	start_page = local_md[spdid].page_start;
+
+	for (i = 0 ; i < h->nsect ; i++) {
+		struct cobj_sect *sect;
+		int j;
+
+		sect       = cobj_sect_get(h, i);
+		for (j = 0 ; j < cobj_sect_size(h, i) ; j += PAGE_SIZE) {
+			vaddr_t cur_addr = sect->vaddr + j;
+
+			if (cur_addr == comp_info) {
+				char *section = cobj_sect_contents(h, i);
+				struct cos_component_information *info = (struct cos_component_information *) (section + j);
+				ucap_tbl = info->cos_user_caps;
+				sched_info = boot_symb_sched_data(info);
+				break;
+			}
+		}
+		
+	}
+
+
 	for (i = 0 ; i < h->nsect ; i++) {
 		struct cobj_sect *sect;
 		vaddr_t dest_daddr;
@@ -200,14 +306,24 @@ static int boot_spd_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t c
 
 		sect       = cobj_sect_get(h, i);
 		dest_daddr = sect->vaddr;
-		lsrc       = cobj_sect_contents(h, i);
+		lsrc       = cobj_sect_contents(h, i); 
 		left       = cobj_sect_size(h, i);
 
 		while (left) {
+			int use_kern_mem = 0;
 			/* data left on a page to copy over */
 			page_left   = (left > PAGE_SIZE) ? PAGE_SIZE : left;
 			dsrc        = start_page;
 			start_page += PAGE_SIZE;
+
+			/* jww: get dsrc from a function that can tell
+			   if we are in a ucap/sched page or not. */
+			if (dsrc == ucap_tbl || dest_daddr == sched_info) {
+				int kern_vis_mem_index = boot_use_kern_vis_vas_page();
+				use_kern_mem = 1;
+				assert(kern_vis_mem_index);
+				dsrc = cos_kernel_visible_memory[kern_vis_mem_index];
+			}
 
 			if (sect->flags & COBJ_SECT_ZEROS) {
 				memset(dsrc, 0, PAGE_SIZE);
@@ -220,7 +336,13 @@ static int boot_spd_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t c
 			 * modification are in this page */
 			boot_symb_process(h, spdid, boot_spd_end(h), dsrc, dest_daddr, comp_info);
 			
-			lsrc       += PAGE_SIZE;
+			/* jww: only increment lsrc if a function we
+			   call (in boot_deps) that knows if we just
+			   copied from an out of line virtual page
+			   since we were in a ucap/sched page. */
+			if (use_kern_mem) {
+				lsrc += PAGE_SIZE;
+			}
 			dest_daddr += PAGE_SIZE;
 			left       -= page_left;
 		}
@@ -465,6 +587,10 @@ void cos_init(void)
 	int num_cobj, i;
 
 	LOCK();
+
+	for (i = 0; i < MAX_NUM_SPDS; i++) {
+		cos_kernel_visible_memory[i] = cos_get_vas_page();
+	}
 
 	boot_deps_init();
 	h         = (struct cobj_header *)cos_comp_info.cos_poly[0];

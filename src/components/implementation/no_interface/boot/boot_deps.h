@@ -23,6 +23,7 @@
 /* memory operations... */
 #define __mman_get_page   mman_get_page
 #define __mman_alias_page mman_alias_page
+#define __mman_revoke_page mman_revoke_page
 
 #include <cinfo.h>
 #include <cos_vect.h>

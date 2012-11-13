@@ -211,6 +211,13 @@ static vaddr_t init_hp = 0; 		/* initial heap pointer */
  * by a page, and the free function is made empty.
  */
 
+
+/* 
+ * XXX: The below function is broken now. We can't use a bitmap to denote which is which 
+ * because that would inherently put limits on how much memory we can use or the size of
+ * the fs or something like that. 
+ * Well, crap. 
+ */
 /* 
  * Virtual address to frame calculation...assume the first address
  * passed in is the start of the heap, and they only increase by a
@@ -222,7 +229,7 @@ __vpage2frame(vaddr_t addr) { return (addr - init_hp) / PAGE_SIZE; }
 static vaddr_t
 __mman_get_page(spdid_t spd, vaddr_t addr, int flags)
 {
-	if (cos_mmap_cntl(COS_MMAP_GRANT, 0, cos_spd_id(), addr, frame_frontier++)) BUG();
+	if (cos_mmap_cntl(COS_MMAP_GRANT, flags, cos_spd_id(), addr, frame_frontier++)) BUG();
 	if (!init_hp){
 		printc("initializing heap! %x\n", addr);
 		init_hp = addr;
@@ -233,7 +240,6 @@ __mman_get_page(spdid_t spd, vaddr_t addr, int flags)
 static vaddr_t
 __mman_alias_page(spdid_t s_spd, vaddr_t s_addr, spdid_t d_spd, vaddr_t d_addr)
 {
-	//	printc("JWW calling mman alias page...\n");
 	int fp;
 
 	assert(init_hp);
@@ -242,6 +248,15 @@ __mman_alias_page(spdid_t s_spd, vaddr_t s_addr, spdid_t d_spd, vaddr_t d_addr)
 	assert(fp >= 0);
 	if (cos_mmap_cntl(COS_MMAP_GRANT, 0, d_spd, d_addr, fp)) BUG();
 	return d_addr;
+}
+
+int 
+__mman_revoke_page(spdid_t spd, vaddr_t addr, int flags) 
+{
+	if (cos_mmap_cntl(COS_MMAP_REVOKE, flags, spd, addr, 0) < 0) {
+		return 1;
+	} 
+	return 0;
 }
 
 static int boot_spd_set_symbs(struct cobj_header *h, spdid_t spdid, struct cos_component_information *ci);

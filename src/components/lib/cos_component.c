@@ -86,6 +86,8 @@ extern const vaddr_t cos_atomic_cmpxchg, cos_atomic_cmpxchg_end,
 extern const vaddr_t cos_upcall_entry;
 
 __attribute__((weak)) vaddr_t ST_user_caps;
+__attribute__((weak)) int cos_sched_notifications;
+int cos_sched_notifications_post;
 
 /* 
  * Much of this is either initialized at load time, or passed to the
@@ -98,6 +100,8 @@ struct cos_component_information cos_comp_info = {
 	.cos_stacks.freelists[0] = {.freelist = 0, .thd_id = 0},
 	.cos_upcall_entry = (vaddr_t)&cos_upcall_entry,
 	.cos_user_caps = (vaddr_t)&ST_user_caps,
+	.cos_sched_info = (vaddr_t)&cos_sched_notifications,
+	.cos_sched_info_post = (vaddr_t)&cos_sched_notifications_post,
 	.cos_ras = {{.start = (vaddr_t)&cos_atomic_cmpxchg, .end = (vaddr_t)&cos_atomic_cmpxchg_end}, 
 		    {.start = (vaddr_t)&cos_atomic_user1, .end = (vaddr_t)&cos_atomic_user1_end},
 		    {.start = (vaddr_t)&cos_atomic_user2, .end = (vaddr_t)&cos_atomic_user2_end},
