@@ -169,7 +169,7 @@ static int boot_use_kern_vis_vas_page () {
 	if (kern_vis_mem_used < MAX_NUM_SPDS - 1) {
 		return kern_vis_mem_used++;
 	}
-	return NULL;
+	return -1;
 }
 
 static vaddr_t boot_spd_end(struct cobj_header *h)
@@ -318,10 +318,10 @@ static int boot_spd_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t c
 
 			/* jww: get dsrc from a function that can tell
 			   if we are in a ucap/sched page or not. */
-			if (dsrc == ucap_tbl || dest_daddr == sched_info) {
+			if (lsrc == ucap_tbl || lsrc == sched_info) {
 				int kern_vis_mem_index = boot_use_kern_vis_vas_page();
 				use_kern_mem = 1;
-				assert(kern_vis_mem_index);
+				assert(kern_vis_mem_index != -1);
 				dsrc = cos_kernel_visible_memory[kern_vis_mem_index];
 			}
 
