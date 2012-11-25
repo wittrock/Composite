@@ -38,7 +38,7 @@ cinfo_map(spdid_t spdid, vaddr_t map_addr, spdid_t target)
 	cinfo_addr = (vaddr_t)cos_vect_lookup(&spd_info_addresses, target);
 	if (0 == cinfo_addr) return -1;
 	if (map_addr != 
-	    (__mman_alias_page(cos_spd_id(), cinfo_addr, spdid, map_addr))) {
+	    (__mman_alias_page(cos_spd_id(), cinfo_addr, spdid, map_addr, 0))) {
 		return -1;
 	}
 
@@ -72,3 +72,15 @@ boot_deps_init(void)
 
 static void
 boot_deps_run(void) { return; }
+
+static void *
+boot_get_map_dsrc (vaddr_t ucap_tbl, vaddr_t sched_info, vaddr_t dest_daddr, int *mman_flags) {
+	return cos_get_vas_page();
+}
+
+static vaddr_t
+boot_get_populate_dsrc (vaddr_t ucap_tbl, vaddr_t sched_info, vaddr_t lsrc, int *use_kern_mem) {
+	return NULL;
+}
+
+

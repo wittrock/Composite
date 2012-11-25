@@ -3131,8 +3131,6 @@ cos_syscall_mmap_cntl(int spdid, long op_flags_dspd, vaddr_t daddr, unsigned lon
 		return -1;
 	}
 
-	/* Do we want to access kernel-region memory here? */
-	kern_access = flags & 0x0001;
 
 	switch(op) {
 	case COS_MMAP_GRANT:
@@ -3153,16 +3151,28 @@ cos_syscall_mmap_cntl(int spdid, long op_flags_dspd, vaddr_t daddr, unsigned lon
 			       this_spd->pfn_base + this_spd->pfn_extent);
 			return -EINVAL;
 		}
+
+		/* Do we want to access kernel-region memory here? */
+		kern_access = flags & 0x0001;
+
+
 		if (!kern_access) {
 			page = cos_access_page(mem_id);
 		} else {
+			printk("Accessing kernel page\n");
 			page = cos_access_kernel_page(mem_id);
 		}
-		printk("mmap_cntl GRANT: spd: %d, mem_id: %x page: %x\n", spdid, mem_id, page);
+
+		if (kern_access) {
+			printk("JWW: CALLING MMAP_CNTL WITH KERN_ACCESS\n");
+		} 
 	map:   if (0 == page) {
 			printk("cos: mmap grant -- could not get a physical page.\n");
 			return -EINVAL;
 		}
+
+		printk("mmap_cntl GRANT: spd: %d, mem_id: %x page: %x\n", spdid, mem_id, page);
+
 		/*
 		 * Demand paging could mess this up as the entry might
 		 * not be in the page table, and we map in our cos
@@ -3491,6 +3501,8 @@ cos_syscall_spd_cntl(int id, int op_spdid, long arg1, long arg2)
 		}
 		/* Is the ucap tbl mapped in? */
 		kaddr = pgtbl_vaddr_to_kaddr(spd->spd_info.pg_tbl, (vaddr_t)spd->user_vaddr_cap_tbl);
+		printk("SPD USER VADDR CAP TBL: %x\n", spd->user_vaddr_cap_tbl);
+		printk("SPD USER CAP TBL: %x\n", kaddr);
 		if (0 == kaddr) {
 			ret = -1;
 			break;

@@ -10,7 +10,7 @@
 static struct cos_page cos_kernel_pages[COS_KERNEL_MEMORY];
 
 /* JWW */
-static paddr_t pages_start = 0x30000000 - ((PAGE_SIZE) * COS_MAX_MEMORY); // 768 MB
+static paddr_t pages_start = 0x30000000; // 768 MB
 static paddr_t pages_extent = (PAGE_SIZE) * COS_MAX_MEMORY; // 4K pages * (# of pages)
 /* END JWW */
 
@@ -94,8 +94,10 @@ paddr_t cos_access_kernel_page (unsigned long cap_no)
 {
 	paddr_t addr;
 
-	if (cap_no > COS_KERNEL_MEMORY) return 0;
+	//	if (cap_no > COS_KERNEL_MEMORY) return 0;
+	assert(cap_no < COS_KERNEL_MEMORY);
 	addr = cos_kernel_pages[cap_no].addr;
+	printk("Returning kernel page: %x\n", addr);
 	assert(addr);
 	return addr;
 

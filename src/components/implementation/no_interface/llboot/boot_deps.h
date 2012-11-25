@@ -3,6 +3,12 @@
 #include <stdio.h>
 #include <string.h>
 
+#define NUM_KERN_VISIBLE_PAGES 12
+
+void* cos_kernel_visible_memory[NUM_KERN_VISIBLE_PAGES];
+int kern_vis_mem_boundary = 0;
+int kern_vis_mem_used = 0;
+
 static int 
 prints(char *s)
 {
@@ -70,6 +76,7 @@ static spdid_t init_schedule[]   = {LLBOOT_MM, LLBOOT_SCHED, 0};
 static int     init_mem_access[] = {1, 0, 0};
 static int     nmmgrs            = 0;
 static int     frame_frontier    = 0; /* which physical frames have we used? */
+static int     kern_frame_frontier = 0;
 
 typedef void (*crt_thd_fn_t)(void);
 
@@ -224,12 +231,26 @@ static vaddr_t init_hp = 0; 		/* initial heap pointer */
  * page from there.
  */
 static inline int
-__vpage2frame(vaddr_t addr) { return (addr - init_hp) / PAGE_SIZE; }
+__vpage2frame(vaddr_t addr) { 
+	if (addr < init_hp) {
+		printc("vpage2frame found a kernel page\n");
+		return (addr - ((vaddr_t) (cos_kernel_visible_memory[0]))) / PAGE_SIZE;
+
+	} else {
+		return (addr - init_hp) / PAGE_SIZE; 
+	}
+}
 
 static vaddr_t
 __mman_get_page(spdid_t spd, vaddr_t addr, int flags)
 {
-	if (cos_mmap_cntl(COS_MMAP_GRANT, flags, cos_spd_id(), addr, frame_frontier++)) BUG();
+
+	if (flags & MMAP_KERN) {
+		if (cos_mmap_cntl(COS_MMAP_GRANT, flags, cos_spd_id(), addr, kern_frame_frontier++)) BUG();
+	} else { 
+		if (cos_mmap_cntl(COS_MMAP_GRANT, flags, cos_spd_id(), addr, frame_frontier++)) BUG();
+	}
+
 	if (!init_hp){
 		printc("initializing heap! %x\n", addr);
 		init_hp = addr;
@@ -238,15 +259,23 @@ __mman_get_page(spdid_t spd, vaddr_t addr, int flags)
 }
 
 static vaddr_t
-__mman_alias_page(spdid_t s_spd, vaddr_t s_addr, spdid_t d_spd, vaddr_t d_addr)
+__mman_alias_page(spdid_t s_spd, vaddr_t s_addr, spdid_t d_spd, vaddr_t d_addr, int flags)
 {
+	printc("Aliasing page...");
 	int fp;
+
+	if (flags & MMAP_KERN) {
+		printc(" with kernel memory");
+	}
+
+	printc("\n");
 
 	assert(init_hp);
 	fp = __vpage2frame(s_addr);
-	printc("JWW alias page: fp: %x src_v: %x dest_v: %x\n", fp, s_addr, d_addr);
+
+	//	printc("JWW alias page: fp: %x src_v: %x dest_v: %x\n", fp, s_addr, d_addr);
 	assert(fp >= 0);
-	if (cos_mmap_cntl(COS_MMAP_GRANT, 0, d_spd, d_addr, fp)) BUG();
+	if (cos_mmap_cntl(COS_MMAP_GRANT, flags, d_spd, d_addr, fp)) BUG();
 	return d_addr;
 }
 
@@ -297,6 +326,7 @@ boot_deps_init(void)
 	assert(nmmgrs > 0);
 }
 
+
 static void
 boot_deps_run(void)
 {
@@ -314,11 +344,76 @@ boot_deps_run_all(void)
 	return ;
 }
 
+/* JWW */
+static void *
+boot_get_kern_vis_vas_page () {
+	//	printc("calling get kern_vis_vas_page\n");
+	if (kern_vis_mem_boundary < MAX_NUM_SPDS - 1) {
+		return cos_kernel_visible_memory[kern_vis_mem_boundary++];
+	}
+	return NULL;
+}
+
+static int 
+boot_use_kern_vis_vas_page () {
+	printc("calling use kern_vis_vas_page\n");
+	if (kern_vis_mem_used < MAX_NUM_SPDS - 1) {
+		return kern_vis_mem_used++;
+	}
+	return -1;
+}
+
+/* Add a third function to reset kern_vis_vas_page */
+/* That should reset used, not visible */
+
+static void *
+boot_get_map_dsrc (vaddr_t ucap_tbl, vaddr_t sched_info, vaddr_t dest_daddr, int *mman_flags) {
+	//	printc("Calling get_map_dsrc %x\n", (char *) dest_daddr);
+	void *dsrc;
+	if (dest_daddr == ucap_tbl || dest_daddr == sched_info) {
+		*mman_flags = MMAP_KERN;
+		/* jww; use memory allocator you write
+		 * to get a vas from within the
+		 * "kernel visible page" vas region
+		 * (it should also check to make sure
+		 * it doesn't try and use a vas page
+		 * that has been used by the normal
+		 * heap ...i.e. as pointed to by
+		 * init_hp) 
+		 */
+		dsrc = (void *) boot_get_kern_vis_vas_page();
+		printc("Found either a ucap table or a scheduler region, mapping to %x\n", dsrc);
+		assert(dsrc);
+	} else {
+		dsrc = cos_get_vas_page();
+	}
+	return dsrc;
+}
+
+static vaddr_t 
+boot_get_populate_dsrc (vaddr_t ucap_tbl, vaddr_t sched_info, vaddr_t lsrc, int *use_kern_mem) {
+	printc("Calling get_populate_dsrc from spd %d | %x\n", cos_spd_id(), (char *) lsrc);
+	vaddr_t dsrc;
+	int mman_flags = 0;
+	if (lsrc == ucap_tbl || lsrc == sched_info) {
+		int kern_vis_mem_index = boot_use_kern_vis_vas_page();
+		assert(kern_vis_mem_index != -1);
+		*use_kern_mem = 1;
+		return (vaddr_t) cos_kernel_visible_memory[kern_vis_mem_index];
+	} else { 
+		return NULL;
+	}
+}
+
+
+/* /JWW */
+
 void 
 cos_upcall_fn(upcall_type_t t, void *arg1, void *arg2, void *arg3)
 {
 	/* printc("core %ld: <<cos_upcall_fn as %d (type %d, CREATE=%d, DESTROY=%d, FAULT=%d)>>\n", */
 	/*        cos_cpuid(), cos_get_thd_id(), t, COS_UPCALL_CREATE, COS_UPCALL_DESTROY, COS_UPCALL_UNHANDLED_FAULT); */
+	assert(NUM_KERN_VISIBLE_PAGES == NCOMPS * 2);
 	switch (t) {
 	case COS_UPCALL_CREATE:
 //		cos_argreg_init();
@@ -344,6 +439,11 @@ cos_upcall_fn(upcall_type_t t, void *arg1, void *arg2, void *arg3)
 void cos_init(void);
 int  sched_init(void)   
 { 
+	int i;
+	for (i = 0; i < NUM_KERN_VISIBLE_PAGES; i++) {
+		cos_kernel_visible_memory[i] = cos_get_vas_page();
+	}
+
 	if (cos_cpuid() == INIT_CORE) {
 		/* The init core will call this function twice: first do
 		 * the cos_init, then return to cos_loader and boot

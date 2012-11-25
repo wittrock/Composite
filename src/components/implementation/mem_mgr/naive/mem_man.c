@@ -302,7 +302,7 @@ mapping_lookup(spdid_t spdid, vaddr_t addr)
 static struct mapping *
 mapping_crt(struct mapping *p, struct frame *f, spdid_t dest, vaddr_t to)
 {
-	printc("JWW: calling mapping_crt in mem_man.c\n");
+	//printc("JWW: calling mapping_crt in mem_man.c\n");
 	struct comp_vas *cv = cvas_lookup(dest);
 	struct mapping *m = NULL;
 	long idx = to >> PAGE_SHIFT;
@@ -461,7 +461,7 @@ dealloc:
 	goto done;		/* -EINVAL */
 }
 
-vaddr_t mman_alias_page(spdid_t s_spd, vaddr_t s_addr, spdid_t d_spd, vaddr_t d_addr)
+vaddr_t mman_alias_page(spdid_t s_spd, vaddr_t s_addr, spdid_t d_spd, vaddr_t d_addr, int flags)
 {
 	printc("JWW: Calling mman_alias_page in mem_man.c\n");
 	struct mapping *m, *n;

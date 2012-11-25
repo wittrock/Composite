@@ -121,7 +121,7 @@ err:
  * Make an alias to a page in a source spd @ a source address to a
  * destination spd/addr
  */
-vaddr_t mman_alias_page(spdid_t s_spd, vaddr_t s_addr, spdid_t d_spd, vaddr_t d_addr)
+vaddr_t mman_alias_page(spdid_t s_spd, vaddr_t s_addr, spdid_t d_spd, vaddr_t d_addr, int flags)
 {
 	int alias = -1, i;
 	struct mem_cell *c;

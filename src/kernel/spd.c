@@ -230,11 +230,15 @@ isolation_level_t cap_change_isolation(int cap_num, isolation_level_t il, int fl
 /* 	       ((il == IL_SDT) ? "SDT" : ((il == IL_AST) ? "AST" : ((il == IL_ST) ? "ST" : "INV"))), */
 /* 	       cap_num, spd_get_index(owner)); */
 
+	printk("cap_change_isolation user capability table: %x\n", (char *) owner->user_cap_tbl);
+
 	/* Use the kernel vaddr space table if possible, but it might
 	 * not be available on initialization */
 	ucap = (NULL != owner->user_cap_tbl) ? 
 		&owner->user_cap_tbl[cap_num - owner->cap_base]:
 		&owner->user_vaddr_cap_tbl[cap_num - owner->cap_base];
+
+	printk("cap_change_isolation user capability table: %x\n", (char *) ucap);
 
 	if (flags & CAP_SAVE_REGS) {
 		/* set highest order bit to designate saving of
@@ -502,12 +506,16 @@ int spd_set_location(struct spd *spd, unsigned long lowest_addr,
 	 * virtual as we might need to alter this while not in the
 	 * spd's page tables (i.e. when merging protection domains).
 	 */
+	printk("SPD set location user vaddr cap tbl %x\n", spd->user_vaddr_cap_tbl);
+
 	kaddr = pgtbl_vaddr_to_kaddr(pg_tbl, (unsigned long)spd->user_vaddr_cap_tbl);
 	if (0 == kaddr) {
 		printk("cos: could not translate the user-cap address, %x, into a kernel vaddr for spd %d.\n",
 		       (unsigned int)spd->user_vaddr_cap_tbl, spd_get_index(spd));
 		return -1;
 	}
+	printk("SPD set location user cap tbl %x\n", kaddr);
+
 
 	spd->user_cap_tbl = (struct usr_inv_cap *)kaddr;
 

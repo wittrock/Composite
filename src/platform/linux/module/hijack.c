@@ -1432,10 +1432,15 @@ paddr_t pgtbl_rem_ret(paddr_t pgtbl, vaddr_t va)
  */
 vaddr_t pgtbl_vaddr_to_kaddr(paddr_t pgtbl, unsigned long addr)
 {
+	printk("address lookup: %x\n", addr);
 	pte_t *pte = pgtbl_lookup_address(pgtbl, addr);
 	unsigned long kaddr;
 
+	unsigned long paddr = pte_val(*pte) & PTE_MASK;
+	printk("paddr lookup: %x\n", paddr);
+
 	if (!pte || !(pte_val(*pte) & _PAGE_PRESENT)) {
+		BUG();
 		return 0;
 	}
 	
