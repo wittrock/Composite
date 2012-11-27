@@ -764,6 +764,7 @@ switch_thread_get_target(unsigned short int tid, struct thread *curr,
 			*ret_code = COS_SCHED_RET_INVAL;
 		}
 		/* error otherwise */
+		
 		goto ret_err;
 	}
 
@@ -772,14 +773,14 @@ switch_thread_get_target(unsigned short int tid, struct thread *curr,
 	if (unlikely(!thd_scheduled_by(curr, curr_spd) ||
 		     !thd_scheduled_by(thd, curr_spd))) {
 		*ret_code = COS_SCHED_RET_ERROR;
-		/* printk("curr %d sched by %d, thd %d sched by %d.\n", thd_get_id(curr), spd_get_index(thd_get_sched_info(curr, curr_spd->sched_depth)->scheduler),  */
-		/*        thd_get_id(thd), spd_get_index(thd_get_sched_info(thd, curr_spd->sched_depth)->scheduler)); */
+		printk("curr %d sched by %d, thd %d sched by %d.\n", thd_get_id(curr), spd_get_index(thd_get_sched_info(curr, curr_spd->sched_depth)->scheduler),
+		       thd_get_id(thd), spd_get_index(thd_get_sched_info(thd, curr_spd->sched_depth)->scheduler));
 		goto ret_err;
 	}
 
 	/* we cannot schedule to run an upcall thread that is not running */
 	if (unlikely(thd->flags & THD_STATE_READY_UPCALL)) {
-		/* printk("args: tid %u, curr thd %d, curr spd %p, \n thd id %d is upcall thd...", tid, thd_get_id(curr), curr_spd, thd_get_id(thd)); */
+		printk("args: tid %u, curr thd %d, curr spd %p, \n thd id %d is upcall thd...", tid, thd_get_id(curr), curr_spd, thd_get_id(thd));
 		cos_meas_event(COS_MEAS_UPCALL_INACTIVE);
 		*ret_code = COS_SCHED_RET_INVAL;
 		goto ret_err;
@@ -816,6 +817,8 @@ switch_thread_update_flags(struct cos_sched_data_area *da, unsigned short int *f
 #define goto_err(label, format, args...) goto label
 #endif
 
+int singleton = 0;
+
 /*
  * The arguments are horrible as we are interfacing w/ assembly and 1)
  * we need to return two values, the regs to restore, and if the next
@@ -831,6 +834,7 @@ COS_SYSCALL struct pt_regs *
 cos_syscall_switch_thread_cont(int spd_id, unsigned short int rthd_id, 
 			       unsigned short int rflags, long *preempt)
 {
+
 	struct thread *thd, *curr;
 	struct spd *curr_spd;
 	unsigned short int next_thd, flags;
@@ -838,6 +842,7 @@ cos_syscall_switch_thread_cont(int spd_id, unsigned short int rthd_id,
 		           thd_sched_flags  = COS_SCHED_EVT_NIL;
 	struct cos_sched_data_area *da;
 	int ret_code = COS_SCHED_RET_ERROR;
+
 
 	*preempt = 0;
 	curr = core_get_curr_thd();
@@ -882,14 +887,17 @@ cos_syscall_switch_thread_cont(int spd_id, unsigned short int rthd_id,
 	} else {
 		next_thd = switch_thread_parse_data_area(da, &ret_code);
 		if (unlikely(0 == next_thd)) {
-//			printk("err: data area\n");
+			printk("err: data area\n");
 			goto_err(ret_err, "data_area\n");
 		}
 
 		thd = switch_thread_get_target(next_thd, curr, curr_spd, &ret_code);
 
 		if (unlikely(NULL == thd)) {
-			printk("err: get target\n");
+			if (!singleton) {
+				//				printk("err: get target\n");
+				singleton++;
+			}
 			goto_err(ret_err, "get target");
 		}
 	}
@@ -2479,7 +2487,13 @@ brand_next_thread(struct thread *brand, struct thread *preempted, int preempt)
 	return preempted;
 }
 
+int valid_kern_vis_addr(paddr_t paddr) {
+	return paddr < 0x30000000; // 768 MB
+}
+
 /************** end functions for parsing async set urgencies ************/
+
+extern paddr_t pgtbl_vaddr_to_paddr(paddr_t pgtbl, unsigned long addr);
 
 COS_SYSCALL int 
 cos_syscall_sched_cntl(int spd_id, int operation, int thd_id, long option)
@@ -2521,6 +2535,11 @@ cos_syscall_sched_cntl(int spd_id, int operation, int thd_id, long option)
 		/* We will need to access the shared_page for thread
 		 * events when the pagetable for this spd is not
 		 * mapped in.  */
+		
+		/* JWW Check validity of region here w/ pte lookup */
+		paddr_t paddr = pgtbl_vaddr_to_paddr(spd->spd_info.pg_tbl, region);
+		assert(valid_kern_vis_addr(paddr));
+
 		spd->kern_sched_shared_page[get_cpuid()] = (struct cos_sched_data_area *)
 			pgtbl_vaddr_to_kaddr(spd->spd_info.pg_tbl, (unsigned long)spd->sched_shared_page[get_cpuid()]);
 		spd->prev_notification[get_cpuid()] = 0;
@@ -3155,17 +3174,12 @@ cos_syscall_mmap_cntl(int spdid, long op_flags_dspd, vaddr_t daddr, unsigned lon
 		/* Do we want to access kernel-region memory here? */
 		kern_access = flags & 0x0001;
 
-
 		if (!kern_access) {
 			page = cos_access_page(mem_id);
 		} else {
-			printk("Accessing kernel page\n");
 			page = cos_access_kernel_page(mem_id);
 		}
 
-		if (kern_access) {
-			printk("JWW: CALLING MMAP_CNTL WITH KERN_ACCESS\n");
-		} 
 	map:   if (0 == page) {
 			printk("cos: mmap grant -- could not get a physical page.\n");
 			return -EINVAL;
@@ -3461,6 +3475,10 @@ cos_syscall_spd_cntl(int id, int op_spdid, long arg1, long arg2)
 			break;
 		}
 		/* arg1 = vaddr of ucap tbl */
+		/* JWW Check validity w/ pte lookup */
+		paddr_t paddr = pgtbl_vaddr_to_paddr(spd->spd_info.pg_tbl, (vaddr_t) arg1);
+		assert(valid_kern_vis_addr(paddr));
+		
 		spd->user_vaddr_cap_tbl = (struct usr_inv_cap*)arg1;
 		break;
 	}

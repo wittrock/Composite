@@ -181,6 +181,8 @@ static int boot_spd_map_memory(struct cobj_header *h, spdid_t spdid, vaddr_t com
 	local_md[spdid].h          = h;
 	local_md[spdid].page_start = cos_get_heap_ptr();
 	local_md[spdid].comp_info  = comp_info;
+	
+	printc("MAP_MEMORY: spd %d\n", spdid);
 
 	/* 
 	 * In here, look through the cobj_sect's and find the comp_info structure.
@@ -211,17 +213,26 @@ static int boot_spd_map_memory(struct cobj_header *h, spdid_t spdid, vaddr_t com
 		struct cobj_sect *sect;
 		char *dsrc;
 		int left;
-		int mman_flags = 0;
+		int mman_flags;
 
 		sect       = cobj_sect_get(h, i);
 		dest_daddr = sect->vaddr;
 		left       = cobj_sect_size(h, i);
 
 		while (left > 0) {
+			mman_flags = 0;
+			printc("    ----Next section----\n");
+			
 			dsrc = boot_get_map_dsrc(ucap_tbl, sched_info, dest_daddr, &mman_flags);
-			if (mman_flags != 0) {
-				printc("got some mman flags: %x\n", mman_flags);
+
+			if (dest_daddr == ucap_tbl) {
+				printc("mapping ucap_tbl for %d: %x\n", spdid, dest_daddr);
 			}
+
+			if (dest_daddr == sched_info) {
+				printc("mapping sched_info for %d: %x\n", spdid, dest_daddr);
+			}
+
 
 			if ((vaddr_t)dsrc != __mman_get_page(cos_spd_id(), (vaddr_t)dsrc, mman_flags)) {
 				printc("JWW: error in boot_spd_map_memory mman_get_page: dsrc: %x\n", dsrc);
@@ -251,6 +262,8 @@ static int boot_spd_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t c
 
 	start_page = local_md[spdid].page_start;
 
+	printc("MAP_POPULATE: spd %d\n", spdid);
+
 	for (i = 0 ; i < h->nsect ; i++) {
 		struct cobj_sect *sect;
 		unsigned int j;
@@ -273,6 +286,8 @@ static int boot_spd_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t c
 	int kern_page_counter = 0;
 
 	for (i = 0 ; i < h->nsect ; i++) {
+		printc("----------- Section %d--------\n", i);
+		
 		struct cobj_sect *sect;
 		vaddr_t dest_daddr;
 		char *lsrc, *dsrc;
@@ -293,36 +308,40 @@ static int boot_spd_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t c
 			tmp_dsrc = (char *) boot_get_populate_dsrc(ucap_tbl, sched_info, (vaddr_t) dest_daddr, &use_kern_mem);
 			//			printc("returned from get_populate_dsrc\n");
 
-			if (dest_daddr == ucap_tbl) {
-				printc("mapping ucap_tbl for %d: %x\n", spdid, dest_daddr);
-			}
-
-			if (dest_daddr == sched_info) {
-				printc("mapping sched_info for %d: %x\n", spdid, dest_daddr);
-			}
 
 			if (tmp_dsrc != NULL) {
 				dsrc = tmp_dsrc;
 				kern_page_counter++;
 			}
 			
+			if (dest_daddr == ucap_tbl) {
+				printc("populating ucap_tbl for %d: %x\n", spdid, dest_daddr);
+			}
+
+			if (dest_daddr == sched_info) {
+				printc("populating sched_info for %d: %x\n", spdid, dest_daddr);
+			}
+
+
 			//printc("tmp_dsrc: %x\n", (char *) tmp_dsrc);
 
 			if (sect->flags & COBJ_SECT_ZEROS) {
-				//				printc("kernel page counter: %d\n", kern_page_counter);
-				//				printc("ucap table %x | sched_info %x\n", ucap_tbl, sched_info);
-				//				printc("we're in the first memset %x", (char *) dsrc);
+				/* printc("kernel page counter: %d\n", kern_page_counter); */
+				/* printc("ucap table %x | sched_info %x\n", ucap_tbl, sched_info); */
+				printc("we're in the first memset %x", (char *) dsrc);
 				 if (use_kern_mem) { 
-				 	printc(" | using kernel memory...\n"); 
+					 printc(" | using kernel memory... spdid: %d", cos_spd_id()); 
 				 } 
+				 printc("\n");
 				memset(dsrc, 0, PAGE_SIZE);
 			} else {
 				printc("we're in the NORMAL memset with the memcpy\n");
 
 				 if (use_kern_mem) { 
-				 	printc(" | using kernel memory...\n"); 
+					 printc(" | using kernel memory... spdid: %d, dsrc: %x, lsrc: %x\n", cos_spd_id(), dsrc, lsrc); 
 				 } 
 				memcpy(dsrc, lsrc, page_left);
+				printc("Completed memcpy\n");
 				if (page_left < PAGE_SIZE) memset(dsrc+page_left, 0, PAGE_SIZE - page_left);
 			}
 
@@ -338,15 +357,16 @@ static int boot_spd_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t c
 			   call (in boot_deps) that knows if we just
 			   copied from an out of line virtual page
 			   since we were in a ucap/sched page. */
-			if (!use_kern_mem) {
-				start_page += PAGE_SIZE;
-			}
-
+			start_page += boot_get_dsrc_increment(use_kern_mem);
+			
 			lsrc       += PAGE_SIZE;
 			dest_daddr += PAGE_SIZE;
 			left       -= page_left;
 		}
 	}
+
+	/* JWW print spdid, last vaddr you used, and the heap address */
+	
 	printc("JWW: Done with map populate\n");
 	return 0;
 }
@@ -542,6 +562,8 @@ failure_notif_fail(spdid_t caller, spdid_t failed)
 //	boot_spd_caps_chg_activation(failed, 0);
 	md = &local_md[failed];
 	assert(md);
+	printc("Failure notif fail. Caller: %d, failed: %d\n", caller, failed);
+
 	if (boot_spd_map_populate(md->h, failed, md->comp_info)) BUG();
 	/* can fail if component had no boot threads: */
 	if (md->h->flags & COBJ_INIT_THD) boot_spd_thd(failed); 	
@@ -588,6 +610,8 @@ void cos_init(void)
 	int num_cobj, i;
 
 	LOCK();
+
+	printc("Cos init being called from core %d\n", cos_cpuid());
 
 	boot_deps_init();
 	h         = (struct cobj_header *)cos_comp_info.cos_poly[0];

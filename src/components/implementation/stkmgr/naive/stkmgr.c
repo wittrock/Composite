@@ -193,6 +193,10 @@ cos_init(void *arg){
 		/* hp = cos_get_vas_page(); */
 		hp = valloc_alloc(cos_spd_id(), cos_spd_id(), 1);
 		spdid = cinfo_get_spdid(i);
+
+		printc("valloc alloc returned %x\n", (unsigned int) hp);
+		printc("spdid: %d\n", spdid);
+
 		if (!spdid) break;
 
 		if(cinfo_map(cos_spd_id(), (vaddr_t)hp, spdid)){

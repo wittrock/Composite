@@ -102,6 +102,8 @@ err_free1:
 
 void *valloc_alloc(spdid_t spdid, spdid_t dest, unsigned long npages)
 {
+	/* JWW print out a few things : spdid, heap ptr, make sure the heap ptr is sane */
+
 	void *ret = NULL;
 	struct spd_vas_tracker *trac;
 	struct spd_vas_occupied *occ;

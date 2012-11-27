@@ -188,6 +188,9 @@ __page_get(void)
 		printc("grant @ %p for frame %d\n", hp, frame_index(f));
 		BUG();
 	}
+
+	memset(hp, 0, PAGE_SIZE);
+
 	return hp;
 }
 #define CPAGE_ALLOC() __page_get()
@@ -318,11 +321,17 @@ mapping_crt(struct mapping *p, struct frame *f, spdid_t dest, vaddr_t to)
 		assert(cv == cvas_lookup(dest));
 	}
 	assert(cv->pages);
-	if (cvect_lookup(cv->pages, idx)) goto collision;
+	if (cvect_lookup(cv->pages, idx)) {
+		printc("Collision in mapping_crt: cvect_lookup failed\n");
+		goto collision;
+	}
 
 	cvas_ref(cv);
 	m = cslab_alloc_mapping();
-	if (!m) goto collision;
+	if (!m) {
+		printc("Collision in mapping_crt: cslab_alloc failed\n");
+		goto collision;
+	}
 
 	if (f->is_kern) {
 		flags |= MMAP_KERN;
@@ -331,7 +340,14 @@ mapping_crt(struct mapping *p, struct frame *f, spdid_t dest, vaddr_t to)
 	if (cos_mmap_cntl(COS_MMAP_GRANT, flags, dest, to, frame_index(f))) {
 		printc("mem_man: could not grant at %x:%d\n", dest, (int)to);
 		goto no_mapping;
-	} 
+	}
+	
+	/* if (dest == cos_spdid()) { */
+	/* 	int x = *((int *) to); */
+	/* } */
+	//memset(to, 0, PAGE_SIZE);
+
+	
 	mapping_init(m, dest, to, p, f);
 	assert(!p || frame_nrefs(f) > 0);
 	frame_ref(f);
@@ -442,6 +458,10 @@ vaddr_t mman_get_page(spdid_t spd, vaddr_t addr, int flags)
 	LOCK();
 	f = frame_alloc(use_kern_mem);
 	
+	assert(!cos_mmap_cntl(COS_MMAP_GRANT, flags, cos_spd_id(), cos_get_heap_ptr(), frame_index(f)));
+	memset(cos_get_heap_ptr(), 0, PAGE_SIZE);
+	cos_mmap_cntl(COS_MMAP_REVOKE, flags, cos_spd_id(), cos_get_heap_ptr(), 0);
+
 	if (!f) goto done; 	/* -ENOMEM */
 	assert(frame_nrefs(f) == 0);
 	frame_ref(f);
@@ -463,7 +483,7 @@ dealloc:
 
 vaddr_t mman_alias_page(spdid_t s_spd, vaddr_t s_addr, spdid_t d_spd, vaddr_t d_addr, int flags)
 {
-	printc("JWW: Calling mman_alias_page in mem_man.c\n");
+	printc("JWW: Calling mman_alias_page in mem_man.c s_spd: %d, d_spd: %d, s_addr: %x, d_addr: %x, flags: %d\n", s_spd, d_spd, s_addr, d_addr, flags);
 	struct mapping *m, *n;
 	vaddr_t ret = 0;
 
@@ -600,7 +620,7 @@ sched_child_thd_crt(spdid_t spdid, spdid_t dest_spd) { BUG(); return 0; }
 void cos_upcall_fn(upcall_type_t t, void *arg1, void *arg2, void *arg3)
 {
 	//  cos_syscall_mmap_cntl(int spdid, long op_flags_dspd, vaddr_t daddr, unsigned long mem_id)
-	//printk("JWW: Initializing NAIVE MEM_MAN\n");
+	printc("JWW: Initializing NAIVE MEM_MAN\n");
 	/* void *hp = cos_get_vas_page(); */
 	/* cos_mmap_cntl(COS_MMAP_GRANT, 0, cos_spd_id(), (vaddr_t)hp, 0x11 << 28); // JWW */
 	/* int *test = (int *) hp; */

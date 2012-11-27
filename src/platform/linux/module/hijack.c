@@ -1426,23 +1426,35 @@ paddr_t pgtbl_rem_ret(paddr_t pgtbl, vaddr_t va)
 	return val;
 }
 
+paddr_t pgtbl_vaddr_to_paddr(paddr_t pgtbl, unsigned long addr) 
+{
+	unsigned long paddr;
+	pte_t *pte = pgtbl_lookup_address(pgtbl, addr);
+
+	if (!pte || !(pte_val(*pte) & _PAGE_PRESENT)) {
+		BUG();
+		return 0;
+	}
+
+	paddr = pte_val(*pte) & PTE_MASK;
+	
+	return paddr;
+}
+
 /* 
  * This won't work to find the translation for the argument region as
  * __va doesn't work on module-mapped memory. 
  */
 vaddr_t pgtbl_vaddr_to_kaddr(paddr_t pgtbl, unsigned long addr)
 {
+	unsigned long paddr;
+	unsigned long kaddr; 
 	printk("address lookup: %x\n", addr);
-	pte_t *pte = pgtbl_lookup_address(pgtbl, addr);
-	unsigned long kaddr;
+	/* pte_t *pte = pgtbl_lookup_address(pgtbl, addr); */
 
-	unsigned long paddr = pte_val(*pte) & PTE_MASK;
-	printk("paddr lookup: %x\n", paddr);
 
-	if (!pte || !(pte_val(*pte) & _PAGE_PRESENT)) {
-		BUG();
-		return 0;
-	}
+	/* unsigned long paddr = pte_val(*pte) & PTE_MASK; */
+
 	
 	/*
 	 * 1) get the value in the pte
@@ -1451,8 +1463,9 @@ vaddr_t pgtbl_vaddr_to_kaddr(paddr_t pgtbl, unsigned long addr)
 	 * 4) offset into that vaddr the appropriate amount from the addr arg.
 	 * 5) return value
 	 */
-
-	kaddr = (unsigned long)__va(pte_val(*pte) & PTE_MASK) + (~PAGE_MASK & addr);
+	paddr = pgtbl_vaddr_to_paddr(pgtbl, addr);
+	printk("paddr lookup: %x\n", paddr);
+	kaddr = (unsigned long)__va(paddr) + (~PAGE_MASK & addr);
 
 	return (vaddr_t)kaddr;
 }

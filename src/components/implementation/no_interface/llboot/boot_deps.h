@@ -273,7 +273,7 @@ __mman_alias_page(spdid_t s_spd, vaddr_t s_addr, spdid_t d_spd, vaddr_t d_addr, 
 	assert(init_hp);
 	fp = __vpage2frame(s_addr);
 
-	//	printc("JWW alias page: fp: %x src_v: %x dest_v: %x\n", fp, s_addr, d_addr);
+	printc("JWW alias page: fp: %x src_v: %x dest_v: %x\n", fp, s_addr, d_addr);
 	assert(fp >= 0);
 	if (cos_mmap_cntl(COS_MMAP_GRANT, flags, d_spd, d_addr, fp)) BUG();
 	return d_addr;
@@ -405,6 +405,14 @@ boot_get_populate_dsrc (vaddr_t ucap_tbl, vaddr_t sched_info, vaddr_t lsrc, int 
 	}
 }
 
+static int 
+boot_get_dsrc_increment (int use_kern_mem) {
+	if (!use_kern_mem) 
+		return PAGE_SIZE;
+	return 0;
+}
+
+
 
 /* /JWW */
 
@@ -426,6 +434,7 @@ cos_upcall_fn(upcall_type_t t, void *arg1, void *arg2, void *arg3)
 	case COS_UPCALL_UNHANDLED_FAULT:
 		printc("Fault detected by the llboot component in thread %d: "
 		       "Major system error.\n", cos_get_thd_id());
+		BUG();
 	default:
 		while (1) ;
 		return;

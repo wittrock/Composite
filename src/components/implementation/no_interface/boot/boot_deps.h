@@ -75,12 +75,21 @@ boot_deps_run(void) { return; }
 
 static void *
 boot_get_map_dsrc (vaddr_t ucap_tbl, vaddr_t sched_info, vaddr_t dest_daddr, int *mman_flags) {
+	if (dest_daddr == ucap_tbl || dest_daddr == sched_info) {
+		*mman_flags |= MMAP_KERN;
+	}
 	return cos_get_vas_page();
 }
 
 static vaddr_t
 boot_get_populate_dsrc (vaddr_t ucap_tbl, vaddr_t sched_info, vaddr_t lsrc, int *use_kern_mem) {
+	if (lsrc == ucap_tbl || lsrc == sched_info) {
+		*use_kern_mem = 1;
+	}
 	return NULL;
 }
+
+static int
+boot_get_dsrc_increment (int use_kern_mem) { return PAGE_SIZE; }
 
 
