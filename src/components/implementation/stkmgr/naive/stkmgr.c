@@ -186,6 +186,9 @@ cos_init(void *arg){
 
 	tmems_allocated = 0;
 
+	/* void *heap_ptr = cos_get_heap_ptr(); */
+	/* printc("STKMGR heap_ptr: %x\n", (unsigned int) heap_ptr); */
+
 	// Map all of the spds we can into this component
 	for (i = 0 ; i < MAX_NUM_SPDS ; i++) {
 		spdid_t spdid;

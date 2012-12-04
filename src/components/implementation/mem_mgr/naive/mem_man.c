@@ -189,6 +189,7 @@ __page_get(void)
 		BUG();
 	}
 
+	printc("page_get memset addr: %x\n", (unsigned int) hp);
 	memset(hp, 0, PAGE_SIZE);
 
 	return hp;
@@ -295,6 +296,7 @@ mapping_init(struct mapping *m, spdid_t spdid, vaddr_t a, struct mapping *p, str
 static struct mapping *
 mapping_lookup(spdid_t spdid, vaddr_t addr)
 {
+	printc("doing a mapping lookup\n");
 	struct comp_vas *cv = cvas_lookup(spdid);
 
 	if (!cv) return NULL;
@@ -305,7 +307,7 @@ mapping_lookup(spdid_t spdid, vaddr_t addr)
 static struct mapping *
 mapping_crt(struct mapping *p, struct frame *f, spdid_t dest, vaddr_t to)
 {
-	//printc("JWW: calling mapping_crt in mem_man.c\n");
+	printc("JWW: calling mapping_crt in mem_man.c\n");
 	struct comp_vas *cv = cvas_lookup(dest);
 	struct mapping *m = NULL;
 	long idx = to >> PAGE_SHIFT;
@@ -337,6 +339,8 @@ mapping_crt(struct mapping *p, struct frame *f, spdid_t dest, vaddr_t to)
 		flags |= MMAP_KERN;
 	}
 
+	
+	printc("Granting memory to %d at %x with mem_id: %d, flags: %d\n", (int) dest, (unsigned int) to, (int) frame_index(f), (int) flags);
 	if (cos_mmap_cntl(COS_MMAP_GRANT, flags, dest, to, frame_index(f))) {
 		printc("mem_man: could not grant at %x:%d\n", dest, (int)to);
 		goto no_mapping;
@@ -457,10 +461,14 @@ vaddr_t mman_get_page(spdid_t spd, vaddr_t addr, int flags)
 
 	LOCK();
 	f = frame_alloc(use_kern_mem);
-	
-	assert(!cos_mmap_cntl(COS_MMAP_GRANT, flags, cos_spd_id(), cos_get_heap_ptr(), frame_index(f)));
-	memset(cos_get_heap_ptr(), 0, PAGE_SIZE);
-	cos_mmap_cntl(COS_MMAP_REVOKE, flags, cos_spd_id(), cos_get_heap_ptr(), 0);
+
+
+	/* printc("mapping page into mm at addr: %x\n", cos_get_heap_ptr()); */
+	/* assert(!cos_mmap_cntl(COS_MMAP_GRANT, flags, cos_spd_id(), cos_get_heap_ptr(), frame_index(f))); */
+	/* memset(cos_get_heap_ptr(), 0, PAGE_SIZE); */
+	/* printc("revoking page into mm at addr: %x\n", cos_get_heap_ptr()); */
+	/* cos_mmap_cntl(COS_MMAP_REVOKE, flags, cos_spd_id(), cos_get_heap_ptr(), 0); */
+	/* cos_mmap_cntl(COS_MMAP_TLBFLUSH, 0, cos_spd_id(), 0, 0); */
 
 	if (!f) goto done; 	/* -ENOMEM */
 	assert(frame_nrefs(f) == 0);
@@ -489,11 +497,15 @@ vaddr_t mman_alias_page(spdid_t s_spd, vaddr_t s_addr, spdid_t d_spd, vaddr_t d_
 
 	LOCK();
 	m = mapping_lookup(s_spd, s_addr);
+	printc("finished mapping lookup\n");
 	if (!m){
 		printc("mapping lookup failed!\n");
 		goto done; 	/* -EINVAL */
 	}
+
+
 	n = mapping_crt(m, m->f, d_spd, d_addr);
+	printc("finished mapping \n");
 	if (!n) { 
 		printc("mapping crt failed!\n");
 		goto done;

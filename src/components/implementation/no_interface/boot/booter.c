@@ -129,10 +129,14 @@ boot_symb_process(struct cobj_header *h, spdid_t spdid, vaddr_t heap_val,
 
 	if (round_to_page(symb_addr) != d_addr) return;
 		
-	ci = (struct cos_component_information*)(mem + ((PAGE_SIZE-1) & symb_addr));
+	ci = (struct cos_component_information*)(mem + ((PAGE_SIZE-1) & symb_addr)); 
+
+
 //		ci->cos_heap_alloc_extent = ci->cos_heap_ptr;
 //		ci->cos_heap_allocated = heap_val;
 	if (!ci->cos_heap_ptr) ci->cos_heap_ptr = heap_val;
+
+	printc("symb process comp info d_addr: %x, addr: %x, ucap_tbl: %x, sched_info: %x, heap_ptr: %x\n", (unsigned int) d_addr, (unsigned int) ci, (unsigned int) ci->cos_user_caps, boot_symb_sched_data(ci), (unsigned int) ci->cos_heap_ptr);
 	ci->cos_this_spd_id = spdid;
 	ci->init_string[0]  = '\0';
 	for (i = 0 ; init_args[i].spdid ; i++) {
@@ -198,7 +202,7 @@ static int boot_spd_map_memory(struct cobj_header *h, spdid_t spdid, vaddr_t com
 			vaddr_t cur_addr = sect->vaddr + j;
 
 			if (cur_addr == comp_info) {
-				printc("Found the component info for spd %d\n", spdid);
+
 				char *section = cobj_sect_contents(h, i);
 				info = (struct cos_component_information *) (section + j);
 				ucap_tbl = info->cos_user_caps;
@@ -239,6 +243,7 @@ static int boot_spd_map_memory(struct cobj_header *h, spdid_t spdid, vaddr_t com
 				BUG();
 			}
 			vaddr_t alias_ret = (__mman_alias_page(cos_spd_id(), (vaddr_t)dsrc, spdid, dest_daddr, mman_flags));
+			printc("finished alias page\n");
 			if (dest_daddr != alias_ret) {
 				printc("JWW: error in boot_spd_map_memory mman_alias_page: dest_daddr: %x, return val: %x\n", dest_daddr, alias_ret);
 				BUG();
@@ -249,6 +254,7 @@ static int boot_spd_map_memory(struct cobj_header *h, spdid_t spdid, vaddr_t com
 		}
 	}
 	local_md[spdid].page_end = (void*)dest_daddr;
+	printc("last map_memory location: %x\n", (unsigned int) dest_daddr);
 
 	return 0;
 }
@@ -258,7 +264,8 @@ static int boot_spd_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t c
 	unsigned int i;
 	char *start_page;
 	vaddr_t ucap_tbl;
-	vaddr_t sched_info;	
+	vaddr_t sched_info;
+	struct cos_component_information *info;
 
 	start_page = local_md[spdid].page_start;
 
@@ -274,7 +281,8 @@ static int boot_spd_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t c
 
 			if (cur_addr == comp_info) {
 				char *section = cobj_sect_contents(h, i);
-				struct cos_component_information *info = (struct cos_component_information *) (section + j);
+				info  = (struct cos_component_information *) (section + j);
+				printc("Found the component symb info for spd %d, addr: %x, ucap_tbl: %x, sched_info: %x\n", spdid, (unsigned int) cur_addr, (unsigned int) info->cos_user_caps, boot_symb_sched_data(info));
 				ucap_tbl = info->cos_user_caps;
 				sched_info = boot_symb_sched_data(info);
 				break;
@@ -284,6 +292,7 @@ static int boot_spd_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t c
 
 	printc("Found component information in map_populate\n");
 	int kern_page_counter = 0;
+	char *last_dsrc;
 
 	for (i = 0 ; i < h->nsect ; i++) {
 		printc("----------- Section %d--------\n", i);
@@ -328,7 +337,7 @@ static int boot_spd_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t c
 			if (sect->flags & COBJ_SECT_ZEROS) {
 				/* printc("kernel page counter: %d\n", kern_page_counter); */
 				/* printc("ucap table %x | sched_info %x\n", ucap_tbl, sched_info); */
-				printc("we're in the first memset %x", (char *) dsrc);
+				printc("we're in the first memset %x", (unsigned int) dest_daddr);
 				 if (use_kern_mem) { 
 					 printc(" | using kernel memory... spdid: %d", cos_spd_id()); 
 				 } 
@@ -362,12 +371,14 @@ static int boot_spd_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t c
 			lsrc       += PAGE_SIZE;
 			dest_daddr += PAGE_SIZE;
 			left       -= page_left;
+			last_dsrc = dsrc;
 		}
 	}
 
 	/* JWW print spdid, last vaddr you used, and the heap address */
-	
+
 	printc("JWW: Done with map populate\n");
+	printc("spdid: %d, last vaddr: %x, heap ptr: %x\n", spdid, last_dsrc, info->cos_heap_ptr);
 	return 0;
 }
 
