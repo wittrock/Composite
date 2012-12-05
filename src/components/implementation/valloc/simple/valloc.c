@@ -141,11 +141,12 @@ void *valloc_alloc(spdid_t spdid, spdid_t dest, unsigned long npages)
 	
 	occ = trac->map;
 	assert(occ);
-	off = bitmap_extent_find_set(&occ->pgd_occupied[0], page_off, npages, MAP_MAX);
+	//	off = bitmap_extent_find_set(&occ->pgd_occupied[0], page_off, npages, MAP_MAX);
+	off = bitmap_extent_find_set(&occ->pgd_occupied[0], 0, npages, MAP_MAX);
 	if (off < 0) goto done;
 	ret = ((char *)trac->extents[0].start) + (off * PAGE_SIZE);
 done:   
-	printc("valloc alloc returning\n");
+	printc("valloc alloc returning %x\n", (unsigned int) ret);
 	UNLOCK();
 	return ret;
 }

@@ -463,12 +463,13 @@ vaddr_t mman_get_page(spdid_t spd, vaddr_t addr, int flags)
 	f = frame_alloc(use_kern_mem);
 
 
-	/* printc("mapping page into mm at addr: %x\n", cos_get_heap_ptr()); */
-	/* assert(!cos_mmap_cntl(COS_MMAP_GRANT, flags, cos_spd_id(), cos_get_heap_ptr(), frame_index(f))); */
-	/* memset(cos_get_heap_ptr(), 0, PAGE_SIZE); */
-	/* printc("revoking page into mm at addr: %x\n", cos_get_heap_ptr()); */
-	/* cos_mmap_cntl(COS_MMAP_REVOKE, flags, cos_spd_id(), cos_get_heap_ptr(), 0); */
-	/* cos_mmap_cntl(COS_MMAP_TLBFLUSH, 0, cos_spd_id(), 0, 0); */
+	printc("mapping page into mm at addr: %x\n", cos_get_heap_ptr());
+	assert(!cos_mmap_cntl(COS_MMAP_GRANT, flags, cos_spd_id(), cos_get_heap_ptr(), frame_index(f)));
+	memset(cos_get_heap_ptr(), 0, PAGE_SIZE);
+	printc("revoking page into mm at addr: %x\n", cos_get_heap_ptr());
+	cos_mmap_cntl(COS_MMAP_REVOKE, flags, cos_spd_id(), cos_get_heap_ptr(), 0);
+	printc("flushing tlb\n");
+	cos_mmap_cntl(COS_MMAP_TLBFLUSH, 0, cos_spd_id(), cos_get_heap_ptr(), 0);
 
 	if (!f) goto done; 	/* -ENOMEM */
 	assert(frame_nrefs(f) == 0);

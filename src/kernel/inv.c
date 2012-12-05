@@ -3145,6 +3145,10 @@ cos_syscall_mmap_cntl(int spdid, long op_flags_dspd, vaddr_t daddr, unsigned lon
 	this_spd = spd_get_by_index(spdid);
 	spd      = spd_get_by_index(dspd_id);
 	if (!this_spd || !spd || virtual_namespace_query(daddr) != spd) {
+		if(!this_spd) {
+			printk("this_spd error\n");
+		}
+		printk("virtual_ns_query: %x\n", (unsigned int) virtual_namespace_query(daddr));
 		printk("cos: invalid mmap cntl call for spd %d for spd %d @ vaddr %x\n",
 		       spdid, dspd_id, (unsigned int)daddr);
 		return -1;
