@@ -2042,7 +2042,6 @@ static int open_checks(void)
 
 static int aed_open(struct inode *inode, struct file *file)
 {
-  printk("RETURNING FROM AED_OPEN\n");
   pte_t *pte = lookup_address_mm(current->mm, COS_INFO_REGION_ADDR);
 	pgd_t *pgd;
 	void* data_page;
@@ -2335,15 +2334,10 @@ static int make_proc_aed(void)
 
 static inline void hw_int_override_all(void)
 {
-    	printk("Got to initializing the CPU\n");
 	hw_int_override_sysenter(sysenter_interposition_entry);
-	printk("Finished overriding systenter\n");
 	hw_int_override_pagefault(page_fault_interposition);
-	printk("Finished overriding pagefault\n");
 	hw_int_override_idt(0, div_fault_interposition, 0, 0);
-	printk("Finished overriding div_fault\n");
 	hw_int_override_idt(0xe9, reg_save_interposition, 0, 3);
-	printk("Finished overriding reg_save\n");
 	return;
 }
 static void hw_init_CPU(void)

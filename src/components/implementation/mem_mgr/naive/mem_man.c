@@ -45,6 +45,14 @@ struct cos_sched_data_area cos_sched_notifications[NUM_CPU];
 #define LOCK()   if (cos_sched_lock_take())    assert(0);
 #define UNLOCK() if (cos_sched_lock_release()) assert(0);
 
+/* will need to determine this systematically later */
+/* 
+ * The memory manager is going to need to know how many pages there
+ *  are and what the start address is 
+*/
+
+
+
 #include <mem_mgr.h>
 
 /***************************************************/
@@ -56,16 +64,20 @@ struct mapping;
 struct frame {
 	int nmaps;
 	short int is_kern;
+	int color;
 	union {
 		struct mapping *m;  /* nmaps > 0 : root of all mappings */
 		vaddr_t addr;	    /* nmaps = -1: local mapping */
 		struct frame *free; /* nmaps = 0 : no mapping */
-
 	} c;
 };
 
+#define N_COLORS 256
+
 struct frame frames[COS_MAX_MEMORY];
-struct frame *freelist;
+//struct frame *freelist;
+struct frame * freelists[N_COLORS];
+int last_color;
 
 /* JWW */
 struct frame kern_frames[COS_KERNEL_MEMORY];
@@ -88,12 +100,13 @@ static inline void frame_ref(struct frame *f)   { f->nmaps++; }
 /* JWW */
 
 static inline struct frame *
-frame_alloc(int use_kern_mem)
-{
+__frame_alloc(int use_kern_mem, int color) {
+	assert(color < N_COLORS);
 	struct frame *f;
 
 	if (!use_kern_mem) {
-		f = freelist;
+		printc("PGCOLOR: allocating frame of color: %d\n", color);
+		f = freelists[color];
 	} else {
 		f = kern_freelist;
 	}
@@ -101,7 +114,7 @@ frame_alloc(int use_kern_mem)
 	if (!f) return NULL;
 	
 	if (!use_kern_mem) {
-		freelist = f->c.free;
+		freelists[color] = f->c.free;
 	} else {
 		kern_freelist = f->c.free;
 	}
@@ -112,6 +125,12 @@ frame_alloc(int use_kern_mem)
 	return f;
 }
 
+static inline struct frame *
+frame_alloc(int use_kern_mem)
+{
+	return __frame_alloc(use_kern_mem, (last_color++) % N_COLORS);
+}
+
 static inline void 
 frame_deref(struct frame *f)
 { 
@@ -119,8 +138,8 @@ frame_deref(struct frame *f)
 	f->nmaps--; 
 	if (f->nmaps == 0) {
 		if (!(f->is_kern)) {
-			f->c.free = kern_freelist;
-			kern_freelist  = f;
+			f->c.free = freelists[f->color];
+			freelists[f->color] = f;
 		} else {
 			f->c.free = kern_freelist;
 			kern_freelist  = f;
@@ -133,14 +152,28 @@ frame_init(void)
 {
 	int i;
 
-	for (i = 0 ; i < COS_MAX_MEMORY-1 ; i++) {
-		frames[i].c.free = &frames[i+1];
+	for (i = 0 ; i < COS_MAX_MEMORY ; i++) {
+
+		if (i + N_COLORS < COS_MAX_MEMORY) {
+			frames[i].c.free = &frames[i + N_COLORS];
+		} else {
+			frames[i].c.free = NULL;
+		}
+		//		frames[i].c.free = &frames[i+1];
 		frames[i].nmaps  = 0;
 		frames[i].is_kern = 0;
+		frames[i].color = i % N_COLORS;
 	}
-	frames[COS_MAX_MEMORY-1].c.free = NULL;
+	//	frames[COS_MAX_MEMORY-1].c.free = NULL;
+	
+	//	freelist = &frames[0];
+	
+	assert(N_COLORS < COS_MAX_MEMORY);
 
-	freelist = &frames[0];
+	for (i = 0; i < N_COLORS; i++) {
+		freelists[i] = &frames[i];
+	}
+	last_color = 0;
 }
 
 /* JWW */
@@ -185,11 +218,11 @@ __page_get(void)
 	f->nmaps  = -1; 	 /* belongs to us... */
 	f->c.addr = (vaddr_t)hp; /* ...at this address */
 	if (cos_mmap_cntl(COS_MMAP_GRANT, 0, cos_spd_id(), (vaddr_t)hp, frame_index(f))) {
-		printc("grant @ %p for frame %d\n", hp, frame_index(f));
+		//		printc("grant @ %p for frame %d\n", hp, frame_index(f));
 		BUG();
 	}
 
-	printc("page_get memset addr: %x\n", (unsigned int) hp);
+	//	printc("page_get memset addr: %x\n", (unsigned int) hp);
 	memset(hp, 0, PAGE_SIZE);
 
 	return hp;
@@ -296,7 +329,7 @@ mapping_init(struct mapping *m, spdid_t spdid, vaddr_t a, struct mapping *p, str
 static struct mapping *
 mapping_lookup(spdid_t spdid, vaddr_t addr)
 {
-	printc("doing a mapping lookup\n");
+	//	printc("doing a mapping lookup\n");
 	struct comp_vas *cv = cvas_lookup(spdid);
 
 	if (!cv) return NULL;
@@ -307,7 +340,7 @@ mapping_lookup(spdid_t spdid, vaddr_t addr)
 static struct mapping *
 mapping_crt(struct mapping *p, struct frame *f, spdid_t dest, vaddr_t to)
 {
-	printc("JWW: calling mapping_crt in mem_man.c\n");
+	//	printc("JWW: calling mapping_crt in mem_man.c\n");
 	struct comp_vas *cv = cvas_lookup(dest);
 	struct mapping *m = NULL;
 	long idx = to >> PAGE_SHIFT;
@@ -446,7 +479,7 @@ mapping_del(struct mapping *m)
 /*** Public interface functions ***/
 /**********************************/
 
-vaddr_t mman_get_page(spdid_t spd, vaddr_t addr, int flags)
+vaddr_t mman_get_page_color(spdid_t spd, vaddr_t addr, int flags, int color)
 {
 
 	/* JWW */
@@ -460,15 +493,19 @@ vaddr_t mman_get_page(spdid_t spd, vaddr_t addr, int flags)
 	vaddr_t ret = -1;
 
 	LOCK();
-	f = frame_alloc(use_kern_mem);
+	if (color >= 0) {
+		printc("using color: %d\n", color);
+		f = __frame_alloc(use_kern_mem, color);
+	} else {
+		f = frame_alloc(use_kern_mem);
+	}
 
-
-	printc("mapping page into mm at addr: %x\n", cos_get_heap_ptr());
+	//	printc("mapping page into mm at addr: %x\n", cos_get_heap_ptr());
 	assert(!cos_mmap_cntl(COS_MMAP_GRANT, flags, cos_spd_id(), cos_get_heap_ptr(), frame_index(f)));
 	memset(cos_get_heap_ptr(), 0, PAGE_SIZE);
-	printc("revoking page into mm at addr: %x\n", cos_get_heap_ptr());
+	//	printc("revoking page into mm at addr: %x\n", cos_get_heap_ptr());
 	cos_mmap_cntl(COS_MMAP_REVOKE, flags, cos_spd_id(), cos_get_heap_ptr(), 0);
-	printc("flushing tlb\n");
+	//	printc("flushing tlb\n");
 	cos_mmap_cntl(COS_MMAP_TLBFLUSH, 0, cos_spd_id(), cos_get_heap_ptr(), 0);
 
 	if (!f) goto done; 	/* -ENOMEM */
@@ -486,8 +523,12 @@ done:
 	return ret;
 dealloc:
 	frame_deref(f);
-
+	ret = NULL;
 	goto done;		/* -EINVAL */
+}
+
+vaddr_t mman_get_page(spdid_t spd, vaddr_t addr, int flags) {
+	return mman_get_page_color(spd, addr, flags, -1);
 }
 
 vaddr_t mman_alias_page(spdid_t s_spd, vaddr_t s_addr, spdid_t d_spd, vaddr_t d_addr, int flags)
@@ -498,17 +539,17 @@ vaddr_t mman_alias_page(spdid_t s_spd, vaddr_t s_addr, spdid_t d_spd, vaddr_t d_
 
 	LOCK();
 	m = mapping_lookup(s_spd, s_addr);
-	printc("finished mapping lookup\n");
+	//printc("finished mapping lookup\n");
 	if (!m){
-		printc("mapping lookup failed!\n");
+		//		printc("mapping lookup failed!\n");
 		goto done; 	/* -EINVAL */
 	}
 
 
 	n = mapping_crt(m, m->f, d_spd, d_addr);
-	printc("finished mapping \n");
+	//	printc("finished mapping \n");
 	if (!n) { 
-		printc("mapping crt failed!\n");
+		//		printc("mapping crt failed!\n");
 		goto done;
 	}
 

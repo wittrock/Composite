@@ -25,4 +25,7 @@ int mman_revoke_page(spdid_t spd, vaddr_t addr, int flags);
 vaddr_t mman_alias_page(spdid_t s_spd, vaddr_t s_addr, spdid_t d_spd, vaddr_t d_addr);
 void mman_print_stats(void);
 
+/* mman_get_page, but with page coloring! */
+vaddr_t mman_get_page_color(spdid_t spd, vaddr_t addr, int flags, int color);
+
 #endif 	    /* !MEM_MGR_H */

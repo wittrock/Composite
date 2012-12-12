@@ -136,7 +136,7 @@ boot_symb_process(struct cobj_header *h, spdid_t spdid, vaddr_t heap_val,
 //		ci->cos_heap_allocated = heap_val;
 	if (!ci->cos_heap_ptr) ci->cos_heap_ptr = heap_val;
 
-	printc("symb process comp info d_addr: %x, addr: %x, ucap_tbl: %x, sched_info: %x, heap_ptr: %x\n", (unsigned int) d_addr, (unsigned int) ci, (unsigned int) ci->cos_user_caps, boot_symb_sched_data(ci), (unsigned int) ci->cos_heap_ptr);
+	//	printc("symb process comp info d_addr: %x, addr: %x, ucap_tbl: %x, sched_info: %x, heap_ptr: %x\n", (unsigned int) d_addr, (unsigned int) ci, (unsigned int) ci->cos_user_caps, boot_symb_sched_data(ci), (unsigned int) ci->cos_heap_ptr);
 	ci->cos_this_spd_id = spdid;
 	ci->init_string[0]  = '\0';
 	for (i = 0 ; init_args[i].spdid ; i++) {
@@ -172,6 +172,7 @@ static vaddr_t boot_spd_end(struct cobj_header *h)
 	return sect->vaddr + round_up_to_page(sect->bytes);
 }
 
+
 static int boot_spd_map_memory(struct cobj_header *h, spdid_t spdid, vaddr_t comp_info)
 {
 
@@ -185,7 +186,7 @@ static int boot_spd_map_memory(struct cobj_header *h, spdid_t spdid, vaddr_t com
 	local_md[spdid].h          = h;
 	local_md[spdid].page_start = cos_get_heap_ptr();
 	local_md[spdid].comp_info  = comp_info;
-	
+
 	printc("MAP_MEMORY: spd %d\n", spdid);
 
 	/* 
@@ -210,7 +211,7 @@ static int boot_spd_map_memory(struct cobj_header *h, spdid_t spdid, vaddr_t com
 				break;
 			}
 		}
-		
+
 	}
 
 	for (i = 0 ; i < h->nsect ; i++) {
@@ -226,7 +227,7 @@ static int boot_spd_map_memory(struct cobj_header *h, spdid_t spdid, vaddr_t com
 		while (left > 0) {
 			mman_flags = 0;
 			printc("    ----Next section----\n");
-			
+
 			dsrc = boot_get_map_dsrc(ucap_tbl, sched_info, dest_daddr, &mman_flags);
 
 			if (dest_daddr == ucap_tbl) {
@@ -243,7 +244,7 @@ static int boot_spd_map_memory(struct cobj_header *h, spdid_t spdid, vaddr_t com
 				BUG();
 			}
 			vaddr_t alias_ret = (__mman_alias_page(cos_spd_id(), (vaddr_t)dsrc, spdid, dest_daddr, mman_flags));
-			printc("finished alias page\n");
+			//			printc("finished alias page\n");
 			if (dest_daddr != alias_ret) {
 				printc("JWW: error in boot_spd_map_memory mman_alias_page: dest_daddr: %x, return val: %x\n", dest_daddr, alias_ret);
 				BUG();
@@ -254,10 +255,11 @@ static int boot_spd_map_memory(struct cobj_header *h, spdid_t spdid, vaddr_t com
 		}
 	}
 	local_md[spdid].page_end = (void*)dest_daddr;
-	printc("last map_memory location: %x\n", (unsigned int) dest_daddr);
+	//	printc("last map_memory location: %x\n", (unsigned int) dest_daddr);
 
 	return 0;
 }
+
 
 static int boot_spd_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t comp_info)
 {
@@ -290,7 +292,7 @@ static int boot_spd_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t c
 		}
 	}
 
-	printc("Found component information in map_populate\n");
+	//	printc("Found component information in map_populate\n");
 	int kern_page_counter = 0;
 	char *last_dsrc;
 
@@ -337,17 +339,17 @@ static int boot_spd_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t c
 			if (sect->flags & COBJ_SECT_ZEROS) {
 				/* printc("kernel page counter: %d\n", kern_page_counter); */
 				/* printc("ucap table %x | sched_info %x\n", ucap_tbl, sched_info); */
-				printc("we're in the first memset %x", (unsigned int) dest_daddr);
+				//				printc("we're in the first memset %x", (unsigned int) dest_daddr);
 				 if (use_kern_mem) { 
-					 printc(" | using kernel memory... spdid: %d", cos_spd_id()); 
+					 //					 printc(" | using kernel memory... spdid: %d", cos_spd_id()); 
 				 } 
 				 printc("\n");
 				memset(dsrc, 0, PAGE_SIZE);
 			} else {
-				printc("we're in the NORMAL memset with the memcpy\n");
+				//				printc("we're in the NORMAL memset with the memcpy\n");
 
 				 if (use_kern_mem) { 
-					 printc(" | using kernel memory... spdid: %d, dsrc: %x, lsrc: %x\n", cos_spd_id(), dsrc, lsrc); 
+					 //					 printc(" | using kernel memory... spdid: %d, dsrc: %x, lsrc: %x\n", cos_spd_id(), dsrc, lsrc); 
 				 } 
 				memcpy(dsrc, lsrc, page_left);
 				printc("Completed memcpy\n");
@@ -376,9 +378,7 @@ static int boot_spd_map_populate(struct cobj_header *h, spdid_t spdid, vaddr_t c
 	}
 
 	/* JWW print spdid, last vaddr you used, and the heap address */
-
-	printc("JWW: Done with map populate\n");
-	printc("spdid: %d, last vaddr: %x, heap ptr: %x\n", spdid, last_dsrc, info->cos_heap_ptr);
+	printc("JWW: Done with map populate--spdid: %d, last vaddr: %x, heap ptr: %x\n", spdid, last_dsrc, info->cos_heap_ptr);
 	return 0;
 }
 
@@ -386,7 +386,6 @@ static int boot_spd_map(struct cobj_header *h, spdid_t spdid, vaddr_t comp_info)
 {
 	if (boot_spd_map_memory(h, spdid, comp_info)) return -1; 
 	if (boot_spd_map_populate(h, spdid, comp_info)) return -1;
-	printc("done with map_populate... \n");
 	return 0;
 }
 

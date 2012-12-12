@@ -77,7 +77,7 @@ static int __valloc_init(spdid_t spdid)
 	ci = cos_get_vas_page();
 	if (cinfo_map(cos_spd_id(), (vaddr_t)ci, spdid)) goto err_free2;
 	hp = (void*)ci->cos_heap_ptr;
-	printc("valloc init heap_ptr: %x\n", (unsigned int) hp);
+	//	printc("valloc init heap_ptr: %x\n", (unsigned int) hp);
 
 	trac->spdid            = spdid;
 	trac->ci               = ci;
@@ -90,7 +90,7 @@ static int __valloc_init(spdid_t spdid)
 	cos_vect_add_id(&spd_vect, trac, spdid);
 	assert(cos_vect_lookup(&spd_vect, spdid));
 success:
-	printc("valloc init success\n");
+	//	printc("valloc init success\n");
 	ret = 0;
 done:
 	return ret;
@@ -126,7 +126,7 @@ void *valloc_alloc(spdid_t spdid, spdid_t dest, unsigned long npages)
 	}
 	hp = (void*)ci->cos_heap_ptr;
 	// now print some things out.
-	printc("valloc alloc heap_ptr: %x, ucap_tbl: %x, npages: %ul \n", (unsigned int) hp, (unsigned int) ci->cos_user_caps, npages);
+	//	printc("valloc alloc heap_ptr: %x, ucap_tbl: %x, npages: %ul \n", (unsigned int) hp, (unsigned int) ci->cos_user_caps, npages);
 	/* /JWW */
 
 	page_off = ((unsigned long)hp - (unsigned long)round_to_pgd_page(hp))/PAGE_SIZE;
@@ -137,7 +137,7 @@ void *valloc_alloc(spdid_t spdid, spdid_t dest, unsigned long npages)
 		if (__valloc_init(dest) ||
 		    !(trac = cos_vect_lookup(&spd_vect, dest))) goto done;
 	}
-	printc("valloc alloc past init\n");
+	//	printc("valloc alloc past init\n");
 	
 	occ = trac->map;
 	assert(occ);
@@ -146,7 +146,7 @@ void *valloc_alloc(spdid_t spdid, spdid_t dest, unsigned long npages)
 	if (off < 0) goto done;
 	ret = ((char *)trac->extents[0].start) + (off * PAGE_SIZE);
 done:   
-	printc("valloc alloc returning %x\n", (unsigned int) ret);
+	//	printc("valloc alloc returning %x\n", (unsigned int) ret);
 	UNLOCK();
 	return ret;
 }

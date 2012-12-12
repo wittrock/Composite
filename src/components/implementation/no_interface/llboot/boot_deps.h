@@ -233,7 +233,7 @@ static vaddr_t init_hp = 0; 		/* initial heap pointer */
 static inline int
 __vpage2frame(vaddr_t addr) { 
 	if (addr < init_hp) {
-		printc("vpage2frame found a kernel page\n");
+		//		printc("vpage2frame found a kernel page\n");
 		return (addr - ((vaddr_t) (cos_kernel_visible_memory[0]))) / PAGE_SIZE;
 
 	} else {
@@ -252,7 +252,7 @@ __mman_get_page(spdid_t spd, vaddr_t addr, int flags)
 	}
 
 	if (!init_hp){
-		printc("initializing heap! %x\n", addr);
+		//		printc("initializing heap! %x\n", addr);
 		init_hp = addr;
 	}
 	return addr;
@@ -261,14 +261,14 @@ __mman_get_page(spdid_t spd, vaddr_t addr, int flags)
 static vaddr_t
 __mman_alias_page(spdid_t s_spd, vaddr_t s_addr, spdid_t d_spd, vaddr_t d_addr, int flags)
 {
-	printc("Aliasing page...");
+	//	printc("Aliasing page...");
 	int fp;
 
 	if (flags & MMAP_KERN) {
-		printc(" with kernel memory");
+		//		printc(" with kernel memory");
 	}
 
-	printc("\n");
+	//	printc("\n");
 
 	assert(init_hp);
 	fp = __vpage2frame(s_addr);
@@ -356,7 +356,7 @@ boot_get_kern_vis_vas_page () {
 
 static int 
 boot_use_kern_vis_vas_page () {
-	printc("calling use kern_vis_vas_page\n");
+	//	printc("calling use kern_vis_vas_page\n");
 	if (kern_vis_mem_used < MAX_NUM_SPDS - 1) {
 		return kern_vis_mem_used++;
 	}
@@ -392,7 +392,7 @@ boot_get_map_dsrc (vaddr_t ucap_tbl, vaddr_t sched_info, vaddr_t dest_daddr, int
 
 static vaddr_t 
 boot_get_populate_dsrc (vaddr_t ucap_tbl, vaddr_t sched_info, vaddr_t lsrc, int *use_kern_mem) {
-	printc("Calling get_populate_dsrc from spd %d | %x\n", cos_spd_id(), (char *) lsrc);
+	//	printc("Calling get_populate_dsrc from spd %d | %x\n", cos_spd_id(), (char *) lsrc);
 	vaddr_t dsrc;
 	int mman_flags = 0;
 	if (lsrc == ucap_tbl || lsrc == sched_info) {
