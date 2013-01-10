@@ -515,8 +515,8 @@ vaddr_t mman_get_page_color(spdid_t spd, vaddr_t addr, int flags, int color)
 
 	assert(!cos_mmap_cntl(COS_MMAP_GRANT, flags, cos_spd_id(), cos_get_heap_ptr(), frame_index(f)));
 	memset(cos_get_heap_ptr(), 0, PAGE_SIZE);
-	printc("mem_man dereferencing...\n");
-	*((char *) cos_get_heap_ptr()) = 0;
+	/* printc("mem_man dereferencing...\n"); */
+	/* *((char *) cos_get_heap_ptr()) = 0; */
 	//	printc("revoking page into mm at addr: %x\n", cos_get_heap_ptr());
 	cos_mmap_cntl(COS_MMAP_REVOKE, flags, cos_spd_id(), cos_get_heap_ptr(), 0);
 	//	printc("flushing tlb\n");

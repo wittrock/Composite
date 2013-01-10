@@ -125,7 +125,7 @@ void cos_init(void)
 
 	int i, color_range, color_start;
 	unsigned int j;
-	vaddr_t ret;
+	vaddr_t working_set_addr, ret;
 	u64_t start, end;
 	int working_set_size = 500;
 	
@@ -159,37 +159,40 @@ void cos_init(void)
 		return;
 	}
 
-	vaddr_t working_set[working_set_size];
+	//	vaddr_t working_set[working_set_size];
 
 	printc("---------- PAGE COLORING TEST STARTING ------\n");
 
 
 	/* 
 	 * I don't currently know why there is always a collision on
-	 * whatever address cos_get_vas_page() returns. For now,
-	 * this works. It also sucks. 
+	 * whatever address cos_get_vas_page() returns the first time
+	 * around. I'm probably not incrementing something
+	 * correctly. For now, this works. It also sucks.
 	*/
 	cos_get_vas_page(); 
 
-	long size =  (long)((long)working_set_size * PAGE_SIZE); 
-	vaddr_t array_vaddr = vas_mgr_expand(cos_spd_id(), size);
-	printc("pcolor bench: got %ld bytes of VAS space at %x\n", size, (unsigned int) array_vaddr);
-	if (array_vaddr == 0) {
+	timed_event_block(cos_spd_id(), 1);
+
+	long size =  (long) working_set_size * (long) PAGE_SIZE; 
+	working_set_addr = vas_mgr_expand(cos_spd_id(), size * 2);
+	printc("pcolor bench: got %ld bytes of VAS space at %x\n", size, (unsigned int) working_set_addr);
+	if (working_set_addr == 0) {
 		printc("pcolor benchmark: could not get enough vaddr space to run benchmark. Exiting.\n");
 		return;
 	}
 	
-	vaddr_t array_offset = array_vaddr;
+	vaddr_t offset = 0;
 	
 	for (i = 0; i < working_set_size; i++) {
 		//		working_set[i] = cos_get_vas_page();
-		working_set[i] = array_offset;
-		array_offset += PAGE_SIZE;
+		//		working_set[i] = array_offset;
 		//		printc("Getting page at %x\n", (unsigned int) working_set[i]);
-		ret = mman_get_page_color(cos_spd_id(), working_set[i], 0, color_start + (i % color_range));
+		ret = mman_get_page_color(cos_spd_id(), working_set_addr + offset, 0, color_start + (i % color_range));
 		/* printc("Dereferencing page: %x\n", (unsigned int) working_set[i]); */
 		/* int x = *((int *) working_set[i]); */
 		//		ret = mman_get_page_color(cos_spd_id(), working_set[i], 0, -1);
+		offset += PAGE_SIZE;
 		if (!ret) {
 			printc("Out of memory of this color, got %d pages\n", i);
 			return;
@@ -197,9 +200,9 @@ void cos_init(void)
 		printc("Got page number %d at %x\n", i, (unsigned int) ret);
 	}
 
-	cos_mmap_cntl(COS_MMAP_TLBFLUSH, 0, cos_spd_id(), cos_get_heap_ptr(), 0);
+	//	cos_mmap_cntl(COS_MMAP_TLBFLUSH, 0, cos_spd_id(), cos_get_heap_ptr(), 0);
 
-	vaddr_t working_set_start = working_set[0];
+	vaddr_t working_set_start = working_set_addr;
 
 	timed_event_block(cos_spd_id(), 1);
 
@@ -213,9 +216,9 @@ void cos_init(void)
 	rdtscll(start);
 
 	for (i = 0; i < ITERATIONS; i++) {
-		//		printc("SPD %d, Iteration: %u \n", cos_spd_id(),i);
+		printc("SPD %d, Iteration: %u \n", cos_spd_id(),i);
 		
-		for (j = 0; j < (working_set_size * PAGE_SIZE) / 2; j += sizeof(unsigned int)) {
+		for (j = 0; j < (working_set_size * PAGE_SIZE) / 2; j += sizeof(int)) {
 			/* int *addr = (int *)((unsigned int) working_set_start + (unsigned int) j); */
 			/* *addr = *addr + 1; */
 			int *addr = (int *)((unsigned int) working_set_start + (unsigned int) j); 
