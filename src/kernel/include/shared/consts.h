@@ -66,7 +66,7 @@ struct pt_regs {
 #define PGD_RANGE    (1<<PGD_SHIFT)
 #define PGD_SIZE     PGD_RANGE
 #define PGD_MASK     (~(PGD_RANGE-1))
-#define PGD_PER_PTBL 1024
+#define PGD_PER_PTBL 1024 
 
 #define round_to_pow2(x, pow2)    (((unsigned long)(x))&(~(pow2-1)))
 #define round_up_to_pow2(x, pow2) (round_to_pow2(((unsigned long)x)+pow2-1, pow2))
@@ -97,7 +97,7 @@ struct pt_regs {
 
 #define COS_NUM_ATOMIC_SECTIONS 10
 
-#define COS_MAX_MEMORY 16*1024
+#define COS_MAX_MEMORY 32*1024
 #define COS_KERNEL_MEMORY 1024
 
 #include "../asm_ipc_defs.h"

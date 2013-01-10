@@ -111,7 +111,8 @@ __frame_alloc(int use_kern_mem, int color) {
 		f = kern_freelist;
 	}
 
-	if (!f) return NULL;
+	//	if (!f) return NULL;
+	assert(f);
 	
 	if (!use_kern_mem) {
 		freelists[color] = f->c.free;
@@ -125,10 +126,13 @@ __frame_alloc(int use_kern_mem, int color) {
 	return f;
 }
 
+// so the system will use one half of the colors
+#define SYSTEM_COLOR_USAGE 2
+
 static inline struct frame *
 frame_alloc(int use_kern_mem)
 {
-	return __frame_alloc(use_kern_mem, (last_color++) % N_COLORS);
+	return __frame_alloc(use_kern_mem, (last_color++) % (N_COLORS / SYSTEM_COLOR_USAGE));
 }
 
 static inline void 
@@ -157,6 +161,7 @@ frame_init(void)
 		if (i + N_COLORS < COS_MAX_MEMORY) {
 			frames[i].c.free = &frames[i + N_COLORS];
 		} else {
+			printc("frame_init: Ended freelist at index %d, size: %d\n", i, (&frames[i] - frames) / (N_COLORS));
 			frames[i].c.free = NULL;
 		}
 		//		frames[i].c.free = &frames[i+1];
@@ -500,15 +505,24 @@ vaddr_t mman_get_page_color(spdid_t spd, vaddr_t addr, int flags, int color)
 		f = frame_alloc(use_kern_mem);
 	}
 
+	if (!f){
+		printc("mem_man: out of memory or out of memory of this color: %d\n", color);
+		goto done; 	/* -ENOMEM */	
+	}
+
 	//	printc("mapping page into mm at addr: %x\n", cos_get_heap_ptr());
+	printc("frame_index: %d\n", frame_index(f));
+
 	assert(!cos_mmap_cntl(COS_MMAP_GRANT, flags, cos_spd_id(), cos_get_heap_ptr(), frame_index(f)));
 	memset(cos_get_heap_ptr(), 0, PAGE_SIZE);
+	printc("mem_man dereferencing...\n");
+	*((char *) cos_get_heap_ptr()) = 0;
 	//	printc("revoking page into mm at addr: %x\n", cos_get_heap_ptr());
 	cos_mmap_cntl(COS_MMAP_REVOKE, flags, cos_spd_id(), cos_get_heap_ptr(), 0);
 	//	printc("flushing tlb\n");
 	cos_mmap_cntl(COS_MMAP_TLBFLUSH, 0, cos_spd_id(), cos_get_heap_ptr(), 0);
 
-	if (!f) goto done; 	/* -ENOMEM */
+
 	assert(frame_nrefs(f) == 0);
 	frame_ref(f);
 	m = mapping_crt(NULL, f, spd, addr);

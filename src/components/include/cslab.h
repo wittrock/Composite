@@ -164,7 +164,7 @@ __cslab_mem_alloc(struct cslab_freelist *fl, int obj_sz, int max_objs)
 		__cslab_init(s, fl, obj_sz, max_objs);
 	}
 
-	printc("JWW: cslab_mem_alloc: obj_sz: %d, max_objs: %d\n", obj_sz, max_objs);
+	//	printc("JWW: cslab_mem_alloc: obj_sz: %d, max_objs: %d\n", obj_sz, max_objs);
 	/* find an empty slot */
 	bm  = s->bitmap;
 	idx = bitmap_one(bm, CSLAB_BITMAP_SIZE);

@@ -94,6 +94,7 @@ vaddr_t vas_mgr_expand(spdid_t spd, long amnt)
 		for (i = s_idx ; i < (s_idx + nentries) ; i++) vas->s[i] = svi;
 		svi->locations[loc].size = amnt;
 		svi->locations[loc].base = ret = s;
+		printc("amnt: %ld\n", amnt);
 		break;
 	}
 done:
@@ -110,7 +111,7 @@ void vas_mgr_contract(spdid_t spd, vaddr_t addr)
 static void init(void)
 {
 	int i;
-
+	cos_get_vas_page(); //JWW REMOVE THIS.
 	lock_static_init(&vas_lock);
 	cos_vect_init_static(&spd_vas_map);
 	vas = alloc_page();

@@ -4,6 +4,9 @@
 #include <sched.h>
 #include <micro_pong.h>
 #include <cbuf.h>
+#include <timed_blk.h>
+#include <vas_mgr.h>
+
 
 #define ITER 2000
 #define MAX_SZ 4096
@@ -124,13 +127,42 @@ void cos_init(void)
 	unsigned int j;
 	vaddr_t ret;
 	u64_t start, end;
-	int working_set_size = 100;
-	color_range = 10;
-	color_start = 220;
+	int working_set_size = 500;
+	
+	if (strcmp(cos_init_args(), "small_run") == 0) {
+		color_start = 160;
+		working_set_size = 200;
+		color_range = 20;
+	} else if (strcmp(cos_init_args(), "large_run") == 0) {
+		color_range = 40;
+		color_start = 140;
+		working_set_size = 950;
+	} else if (strcmp(cos_init_args(), "small_run_separate") == 0) {
+		printc("Letting the other task do its thing.\n");
+		color_start = 181;
+		color_range = 20;
+		working_set_size = 200;
+	} else if (strcmp(cos_init_args(), "large_run_separate") == 0) {
+		color_range = 40;
+		color_start = 181;
+		working_set_size = 950;
+	} else if (strcmp(cos_init_args(), "single_multiple_colors") == 0) {
+		color_range = 64;
+		color_start = 181;
+		working_set_size = 950;
+	} else if (strcmp(cos_init_args(), "single_one_color") == 0) {
+		color_range = 16;
+		color_start = 220;
+		working_set_size = 950;
+	} else {
+		printc("Invalid color_start argument, use 220 or 230\n");
+		return;
+	}
 
 	vaddr_t working_set[working_set_size];
 
 	printc("---------- PAGE COLORING TEST STARTING ------\n");
+
 
 	/* 
 	 * I don't currently know why there is always a collision on
@@ -138,12 +170,26 @@ void cos_init(void)
 	 * this works. It also sucks. 
 	*/
 	cos_get_vas_page(); 
+
+	long size =  (long)((long)working_set_size * PAGE_SIZE); 
+	vaddr_t array_vaddr = vas_mgr_expand(cos_spd_id(), size);
+	printc("pcolor bench: got %ld bytes of VAS space at %x\n", size, (unsigned int) array_vaddr);
+	if (array_vaddr == 0) {
+		printc("pcolor benchmark: could not get enough vaddr space to run benchmark. Exiting.\n");
+		return;
+	}
+	
+	vaddr_t array_offset = array_vaddr;
 	
 	for (i = 0; i < working_set_size; i++) {
-		working_set[i] = cos_get_vas_page();
-		printc("Getting page at %x\n", (unsigned int) working_set[i]);
-		//ret = mman_get_page_color(cos_spd_id(), working_set[i], 0, color_start + (i % color_range));
-		ret = mman_get_page_color(cos_spd_id(), working_set[i], 0, -1);
+		//		working_set[i] = cos_get_vas_page();
+		working_set[i] = array_offset;
+		array_offset += PAGE_SIZE;
+		//		printc("Getting page at %x\n", (unsigned int) working_set[i]);
+		ret = mman_get_page_color(cos_spd_id(), working_set[i], 0, color_start + (i % color_range));
+		/* printc("Dereferencing page: %x\n", (unsigned int) working_set[i]); */
+		/* int x = *((int *) working_set[i]); */
+		//		ret = mman_get_page_color(cos_spd_id(), working_set[i], 0, -1);
 		if (!ret) {
 			printc("Out of memory of this color, got %d pages\n", i);
 			return;
@@ -151,22 +197,40 @@ void cos_init(void)
 		printc("Got page number %d at %x\n", i, (unsigned int) ret);
 	}
 
+	cos_mmap_cntl(COS_MMAP_TLBFLUSH, 0, cos_spd_id(), cos_get_heap_ptr(), 0);
+
 	vaddr_t working_set_start = working_set[0];
 
+	timed_event_block(cos_spd_id(), 1);
+
+	/* volatile int rend = 0; //global */
+
+	/* //in the startup-function before measurements */
+	/* rend++; */
+	/* while (rend < 2); */
+	
+	printc("Starting iterations\n");
 	rdtscll(start);
 
 	for (i = 0; i < ITERATIONS; i++) {
-		//		printc("Iteration: %u \n", i);
-		for (j = 0; j < working_set_size * PAGE_SIZE; j += sizeof(unsigned int)) {
-			int *addr = (int *)((unsigned int) working_set_start + (unsigned int) j);
+		//		printc("SPD %d, Iteration: %u \n", cos_spd_id(),i);
+		
+		for (j = 0; j < (working_set_size * PAGE_SIZE) / 2; j += sizeof(unsigned int)) {
+			/* int *addr = (int *)((unsigned int) working_set_start + (unsigned int) j); */
+			/* *addr = *addr + 1; */
+			int *addr = (int *)((unsigned int) working_set_start + (unsigned int) j); 
+			if ((unsigned int)addr % PAGE_SIZE == 0)
+				printc("pcolor bench: accessing address %x\n", (unsigned int) addr);
 			*addr = *addr + 1;
-
+			/* addr = (int *)((unsigned int) working_set_start + (((unsigned int) working_set_size * PAGE_SIZE) - (unsigned int) j)) - 1; */
+			/* printc("pcolor bench: accessing address %x\n", (unsigned int) addr); */
+			/* *addr = *addr + 1; */
+			//			printc("pcolor bench: finished loop\n");
+					
 		}
 	}
-	printc("End of iterations\n");
 	rdtscll(end);
-	printc("%d Iterations, %llu cycles avg\n", ITERATIONS, (end-start)/ITERATIONS); 
-	printc("init args: %s\n", cos_init_args());
+	printc("End of iterations, color start: %d | SPD %d, %d Iterations, %llu cycles avg\n", color_start, cos_spd_id(), ITERATIONS, (end-start)/ITERATIONS);
 	return;
 }
 

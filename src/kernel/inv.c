@@ -282,6 +282,7 @@ fault_ipc_invoke(struct thread *thd, vaddr_t fault_addr, int flags, struct pt_re
 	/* If no component catches this fault, upcall into the
 	 * scheduler with a "destroy thread" event. */
 	if (unlikely(!fault_cap)) {
+		printk("unhandled fault in inv.c, addr %x, thread %d\n", (unsigned int) fault_addr, thd->thread_id);
 		nregs = thd_ret_upcall_type(thd, COS_UPCALL_UNHANDLED_FAULT);
 #define COPY_REG(name) regs-> name = nregs-> name
 		COPY_REG(ax);
@@ -3145,8 +3146,11 @@ cos_syscall_mmap_cntl(int spdid, long op_flags_dspd, vaddr_t daddr, unsigned lon
 	this_spd = spd_get_by_index(spdid);
 	spd      = spd_get_by_index(dspd_id);
 	if (!this_spd || !spd || virtual_namespace_query(daddr) != spd) {
-		if(!this_spd) {
-			printk("this_spd error\n");
+		if (!this_spd) {
+			printk("mmap_cntl: this_spd error\n");
+		}
+		if (!spd) {
+			printk("mmap_cntl: spd error, dpsd_id: %d\n", dspd_id);
 		}
 		printk("virtual_ns_query: %x\n", (unsigned int) virtual_namespace_query(daddr));
 		printk("cos: invalid mmap cntl call for spd %d for spd %d @ vaddr %x\n",
@@ -3169,8 +3173,8 @@ cos_syscall_mmap_cntl(int spdid, long op_flags_dspd, vaddr_t daddr, unsigned lon
 			/* 	goto map; */
 			/* } /\* JWW *\/ */
 			
-			printk("Accessing physical frame outside of allowed range (%d outside of [%d, %d).\n",
-			       (int)mem_id, this_spd->pfn_base, 
+			printk("SPD %d accessing physical frame outside of allowed range (%d outside of [%d, %d).\n",
+			       spdid, (int)mem_id, this_spd->pfn_base, 
 			       this_spd->pfn_base + this_spd->pfn_extent);
 			return -EINVAL;
 		}
@@ -3189,7 +3193,7 @@ cos_syscall_mmap_cntl(int spdid, long op_flags_dspd, vaddr_t daddr, unsigned lon
 			return -EINVAL;
 		}
 
-		printk("mmap_cntl GRANT: spd: %d, mem_id: %x page: %x\n", spdid, mem_id, page);
+		//		printk("mmap_cntl GRANT: spd: %d, mem_id: %x page: %x\n", spdid, mem_id, page);
 
 		/*
 		 * Demand paging could mess this up as the entry might
@@ -3198,6 +3202,8 @@ cos_syscall_mmap_cntl(int spdid, long op_flags_dspd, vaddr_t daddr, unsigned lon
 		 * forces demand paging to not be used (explicitly
 		 * writing all of the pages itself).
 		 */
+
+		printk("mmap_cntl: granting page %x at paddr %x to spd %d\n", (unsigned int) daddr, (unsigned int) page, spdid);
 		if (pgtbl_add_entry(spd->spd_info.pg_tbl, daddr, page)) {
 			printk("cos: mmap grant into %d @ %x -- could not add entry to page table.\n", 
 			       dspd_id, (unsigned int)daddr);
@@ -3583,7 +3589,9 @@ cos_syscall_vas_cntl(int id, int op_spdid, long addr, long sz)
 		ret = -1;
 		break;
 	case COS_VAS_SPD_EXPAND:	/* allocate more vas to spd */
+		printk("vas_cntl EXPAND: spd %d, location %x, size %x\n", (unsigned short int) spd_id, (unsigned int) addr, (unsigned int) sz);
 		if (spd_add_location(spd, addr, sz)) ret = -1;
+		if (ret == -1) printk("JWW vas_cntl: error expanding\n");
 		break;
 	case COS_VAS_SPD_RETRACT:	/* deallocate some vas from spd */
 		if (spd_rem_location(spd, addr, sz)) ret = -1;

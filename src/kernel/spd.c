@@ -36,7 +36,7 @@ int virtual_namespace_alloc(struct spd *spd, unsigned long addr, unsigned int si
 		if (virtual_spd_layout[i]) return 0;
 	}
 
-	//printk("cos: adding spd %d from %x to %x\n", spd_get_index(spd), addr, addr+size);
+	printk("cos: adding spd %d from %x to %x\n", spd_get_index(spd), addr, addr+size);
 	for (i = adj_addr ; i < adj_to ; i++) {
 		virtual_spd_layout[i] = spd;
 	}
@@ -546,10 +546,12 @@ int spd_add_location(struct spd *spd, long base, long size)
 
 	spd->location[i].lowest_addr = base;
 	spd->location[i].size = size;
+	printk("spd_add_location, base = %ld, size = %ld\n", base, size);
 	BUG_ON(pgtbl_add_middledir_range(spd->spd_info.pg_tbl, base, size));
 done:
 	return ret;
 err:
+	printk("spd_add_location error. fuck.\n");
 	ret = -1;
 	goto done;
 }

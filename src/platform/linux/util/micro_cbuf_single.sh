@@ -5,7 +5,7 @@
 ./cos_loader \
 "c0.o, ;llboot.o, ;*fprr.o, ;mm.o, ;print.o, ;boot.o, ;\
 \
-!mpool.o,a3;!trans.o,a6;!sm.o,a4;!l.o,a1;!te.o,a3;!e.o,a4;!stat.o,a25;!buf.o,a5;(!pi.o=micro_pingp.o), 'large_run';(!po.o=micro_pingp.o), 'small_run';!va.o,a2:\
+!mpool.o,a3;!trans.o,a6;!sm.o,a4;!l.o,a1;!te.o,a3;!e.o,a4;!stat.o,a25;!buf.o,a5;(!pi.o=micro_pingp.o), 'single_one_color';!va.o,a2;!vm.o,a2:\
 \
 c0.o-llboot.o;\
 fprr.o-print.o|[parent_]mm.o|[faulthndlr_]llboot.o;\
@@ -20,7 +20,6 @@ buf.o-boot.o|sm.o|fprr.o|print.o|l.o|mm.o|va.o|mpool.o;\
 mpool.o-print.o|fprr.o|mm.o|boot.o|va.o|l.o;\
 va.o-fprr.o|print.o|mm.o|l.o|boot.o;\
 trans.o-sm.o|fprr.o|l.o|buf.o|mm.o|va.o|e.o|print.o;\
-\
-pi.o-sm.o|fprr.o|va.o|print.o|mm.o|l.o|buf.o|te.o;\
-po.o-sm.o|fprr.o|va.o|print.o|mm.o|l.o|buf.o|te.o\
+vm.o-sm.o|fprr.o|print.o|mm.o|l.o;\
+pi.o-sm.o|fprr.o|va.o|print.o|mm.o|l.o|buf.o|te.o|vm.o\
 " ./gen_client_stub

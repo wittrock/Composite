@@ -185,7 +185,7 @@ static inline int
 bitmap_extent_find_set(u32_t *x, int off, int extent, int max)
 {
 	int r = bitmap_contiguous_ones(x, off, extent, max);
-	printc("bitmap_extent_find_set: %d\n", r);
+	//	printc("bitmap_extent_find_set: %d\n", r);
 	if (r < 0) return r;
 	bitmap_set_contig(x, r, extent, 0);
 
