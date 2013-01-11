@@ -149,11 +149,11 @@ void cos_init(void)
 	} else if (strcmp(cos_init_args(), "single_multiple_colors") == 0) {
 		color_range = 64;
 		color_start = 181;
-		working_set_size = 950;
+		working_set_size = 2048;
 	} else if (strcmp(cos_init_args(), "single_one_color") == 0) {
-		color_range = 16;
+		color_range = 18;
 		color_start = 220;
-		working_set_size = 950;
+		working_set_size = 2048;
 	} else {
 		printc("Invalid color_start argument, use 220 or 230\n");
 		return;
@@ -216,14 +216,14 @@ void cos_init(void)
 	rdtscll(start);
 
 	for (i = 0; i < ITERATIONS; i++) {
-		printc("SPD %d, Iteration: %u \n", cos_spd_id(),i);
+		//		printc("SPD %d, Iteration: %u \n", cos_spd_id(),i);
 		
 		for (j = 0; j < (working_set_size * PAGE_SIZE) / 2; j += sizeof(int)) {
 			/* int *addr = (int *)((unsigned int) working_set_start + (unsigned int) j); */
 			/* *addr = *addr + 1; */
 			int *addr = (int *)((unsigned int) working_set_start + (unsigned int) j); 
-			if ((unsigned int)addr % PAGE_SIZE == 0)
-				printc("pcolor bench: accessing address %x\n", (unsigned int) addr);
+			/* if ((unsigned int)addr % PAGE_SIZE == 0) */
+			/* 	printc("pcolor bench: accessing address %x\n", (unsigned int) addr); */
 			*addr = *addr + 1;
 			/* addr = (int *)((unsigned int) working_set_start + (((unsigned int) working_set_size * PAGE_SIZE) - (unsigned int) j)) - 1; */
 			/* printc("pcolor bench: accessing address %x\n", (unsigned int) addr); */
