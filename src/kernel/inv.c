@@ -282,7 +282,7 @@ fault_ipc_invoke(struct thread *thd, vaddr_t fault_addr, int flags, struct pt_re
 	/* If no component catches this fault, upcall into the
 	 * scheduler with a "destroy thread" event. */
 	if (unlikely(!fault_cap)) {
-		printk("unhandled fault in inv.c, addr %x, thread %d\n", (unsigned int) fault_addr, thd->thread_id);
+		//		printk("unhandled fault in inv.c, addr %x, thread %d\n", (unsigned int) fault_addr, thd->thread_id);
 		nregs = thd_ret_upcall_type(thd, COS_UPCALL_UNHANDLED_FAULT);
 #define COPY_REG(name) regs-> name = nregs-> name
 		COPY_REG(ax);
@@ -2539,7 +2539,13 @@ cos_syscall_sched_cntl(int spd_id, int operation, int thd_id, long option)
 		
 		/* JWW Check validity of region here w/ pte lookup */
 		paddr_t paddr = pgtbl_vaddr_to_paddr(spd->spd_info.pg_tbl, region);
-		assert(valid_kern_vis_addr(paddr));
+		printk("spd %d event region paddr: %x\n", spd_get_index(spd), (unsigned int) paddr);
+		if (!valid_kern_vis_addr(paddr)) {
+			printk("sched_cntl: NON-KERNEL-VISIBLE ADDRESS FOR EVT REGION\n");
+			return -1;
+		}
+		
+		//		assert(valid_kern_vis_addr(paddr));
 
 		spd->kern_sched_shared_page[get_cpuid()] = (struct cos_sched_data_area *)
 			pgtbl_vaddr_to_kaddr(spd->spd_info.pg_tbl, (unsigned long)spd->sched_shared_page[get_cpuid()]);
@@ -3203,7 +3209,7 @@ cos_syscall_mmap_cntl(int spdid, long op_flags_dspd, vaddr_t daddr, unsigned lon
 		 * writing all of the pages itself).
 		 */
 
-		printk("mmap_cntl: granting page %x at paddr %x to spd %d\n", (unsigned int) daddr, (unsigned int) page, spdid);
+		printk("mmap_cntl: granting page %x at paddr %x, mem_id %d to spd %d\n", (unsigned int) daddr, (unsigned int) page, (int) mem_id, spdid);
 		if (pgtbl_add_entry(spd->spd_info.pg_tbl, daddr, page)) {
 			printk("cos: mmap grant into %d @ %x -- could not add entry to page table.\n", 
 			       dspd_id, (unsigned int)daddr);

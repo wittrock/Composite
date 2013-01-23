@@ -7,125 +7,19 @@
 #include <timed_blk.h>
 #include <vas_mgr.h>
 
-
-#define ITER 2000
-#define MAX_SZ 4096
-#define NCBUF 100
-
-// using threadpool_max
-
 #define ITERATIONS 10000
+
+static int is_thread = 0;
+
+static vaddr_t working_set_addr;
 
 void cos_init(void)
 {
-	/* u64_t start, end, start_tmp, end_tmp; */
-	/* int i, k, prev_sz = 1; */
-
-	/* cbuf_t cbt[NCBUF]; */
-	/* memset(cbt, 0 , NCBUF*sizeof(cbuf_t)); */
-	/* void *mt[NCBUF]; */
-	/* unsigned int sz[NCBUF]; */
-
-	/* for (i = 0; i < NCBUF ; i++){ */
-	/* 	cbt[i] = cbuf_null(); */
-	/* 	sz[i] = 0; */
-	/* } */
-
-	/* printc("\nMICRO BENCHMARK TEST (PINGPONG WITH CBUF)\n"); */
-
-        /* /\* RDTSCLL *\/ */
-	/* printc("\n<<< RDTSCLL MICRO-BENCHMARK TEST >>>\n"); */
-	/* rdtscll(start_tmp); */
-	/* for (i = 0 ; i < ITER ; i++) { */
-	/* 	rdtscll(start); */
-	/* } */
-	/* rdtscll(end_tmp); */
-	/* printc("%d rdtscll avg %lld cycs\n", ITER, (end_tmp-start_tmp)/ITER); */
-	
-        /* /\* PINGPONG *\/ */
-	/* printc("\n<<< PINGPONG MICRO-BENCHMARK TEST >>>\n"); */
-	/* call(); */
-	/* for (k = 0; k <10 ;k++){ */
-		
-	/* 	rdtscll(start); */
-	/* 	for (i = 0 ; i < ITER ; i++) { */
-	/* 		call(); */
-	/* 	} */
-	/* 	rdtscll(end); */
-	/* 	printc("%d invs avg %lld cycs\n", ITER, (end-start)/ITER); */
-	/* } */
-	/* printc("<<< PINGPONG BENCHMARK TEST DONE >>>\n"); */
-
-        /* /\* CACHING *\/ */
-	/* printc("\n<<< WARM UP CBUF CACHE......."); */
-	/* for (i = 0; i < NCBUF ; i++){ */
-	/* 	prev_sz += 4; */
-	/* 	prev_sz &= PAGE_SIZE-1; */
-	/* 	sz[i] = prev_sz;		 */
-	/* 	mt[i] = cbuf_alloc(sz[i], &cbt[i]); */
-	/* } */
-
-	/* for (i = 0; i < NCBUF ; i++){ */
-	/* 	simple_call_buf2buf(cbt[i], sz[i]); */
-	/* } */
-
-	/* for (i = 0; i < NCBUF ; i++){ */
-	/* 	cbuf_free(mt[i]); */
-	/* } */
-	/* printc(" Done! >>>\n"); */
-
-        /* /\* CBUF_ALLOC  *\/ */
-	/* printc("\n<<< CBUF_ALLOC MICRO-BENCHMARK TEST >>>\n"); */
-	/* rdtscll(start); */
-	/* for (i = 0; i < NCBUF ; i++){ */
-	/* 	prev_sz += 4; */
-	/* 	prev_sz &= PAGE_SIZE-1; */
-	/* 	sz[i] = prev_sz; */
-	/* 	mt[i] = cbuf_alloc(sz[i], &cbt[i]);  */
-	/* } */
-	/* rdtscll(end); */
-	/* printc("%d alloc_cbuf %llu cycs\n", NCBUF, (end-start)/NCBUF); */
-	/* printc("<<< CBUF_ALLOC MICRO-BENCHMARK TEST DONE >>>\n"); */
-
-        /* /\* CBUF2BUF  *\/ */
-	/* printc("\n<<< CBUF2BUF MICRO-BENCHMARK TEST >>>\n"); */
-	/* for (i = 0; i < NCBUF ; i++){ */
-	/* 	call_buf2buf(cbt[i], sz[i]); */
-	/* } */
-	/* printc("<<< CBUF2BUF MICRO-BENCHMARK TEST DONE >>>\n"); */
-
-        /* /\* CBUF_FREE  *\/ */
-	/* printc("\n<<< CBUF_FREE MICRO-BENCHMARK TEST >>>\n"); */
-	/* rdtscll(start); */
-	/* for (i = 0; i < NCBUF ; i++){ */
-	/* 	cbuf_free(mt[i]);                 */
-	/* } */
-	/* rdtscll(end); */
-	/* printc("%d free_cbuf %llu cycs avg\n", NCBUF, (end-start)/NCBUF); */
-	/* printc("<<< CBUF_FREE MICRO-BENCHMARK TEST DONE >>>\n"); */
-
-        /* /\* CBUF_ALLOC-CBUF2BUF-CBUF_FREE *\/ */
-	/* printc("\n<<< CBUF_ALLOC-CBUF2BUF-CBUF_FREE MICRO-BENCHMARK TEST >>>\n"); */
-	/* prev_sz += 4; */
-	/* prev_sz &= PAGE_SIZE-1; */
-	/* sz[0] = prev_sz; */
-	/* rdtscll(start); */
-	/* for (i = 0; i < ITER ; i++){ */
-	/* 	mt[0] = cbuf_alloc(sz[0], &cbt[0]); */
-	/* 	simple_call_buf2buf(cbt[0], sz[0]); */
-	/* 	cbuf_free(mt[0]); */
-	/* } */
-	/* rdtscll(end); */
-	/* printc("%d alloc-cbuf2buf-free %llu cycles avg\n", ITER, (end-start)/ITER); */
-
-	/* printc("<<< CBUF_ALLOC-CBUF2BUF-CBUF_FREE MICRO-BENCHMARK TEST DONE >>>\n"); */
-
-	/* printc("\nMICRO BENCHMARK TEST (PINGPONG WITH CBUF) DONE!\n\n"); */
 
 
 	int i, color_range, color_start;
 	unsigned int j;
-	vaddr_t working_set_addr, ret;
+	vaddr_t ret;
 	u64_t start, end;
 	int working_set_size = 500;
 	
@@ -136,7 +30,7 @@ void cos_init(void)
 	} else if (strcmp(cos_init_args(), "large_run") == 0) {
 		color_range = 40;
 		color_start = 140;
-		working_set_size = 950;
+		working_set_size = 2048;
 	} else if (strcmp(cos_init_args(), "small_run_separate") == 0) {
 		printc("Letting the other task do its thing.\n");
 		color_start = 181;
@@ -145,7 +39,7 @@ void cos_init(void)
 	} else if (strcmp(cos_init_args(), "large_run_separate") == 0) {
 		color_range = 40;
 		color_start = 181;
-		working_set_size = 950;
+		working_set_size = 2048;
 	} else if (strcmp(cos_init_args(), "single_multiple_colors") == 0) {
 		color_range = 64;
 		color_start = 181;
@@ -159,65 +53,75 @@ void cos_init(void)
 		return;
 	}
 
-	//	vaddr_t working_set[working_set_size];
 
-	printc("---------- PAGE COLORING TEST STARTING ------\n");
-
-
-	/* 
-	 * I don't currently know why there is always a collision on
-	 * whatever address cos_get_vas_page() returns the first time
-	 * around. I'm probably not incrementing something
-	 * correctly. For now, this works. It also sucks.
-	*/
-	cos_get_vas_page(); 
-
-	timed_event_block(cos_spd_id(), 1);
-
-	long size =  (long) working_set_size * (long) PAGE_SIZE; 
-	working_set_addr = vas_mgr_expand(cos_spd_id(), size * 2);
-	printc("pcolor bench: got %ld bytes of VAS space at %x\n", size, (unsigned int) working_set_addr);
-	if (working_set_addr == 0) {
-		printc("pcolor benchmark: could not get enough vaddr space to run benchmark. Exiting.\n");
-		return;
-	}
+	printc("---------- PAGE COLORING TEST STARTING CORE: %d ------\n", cos_cpuid());
 	
-	vaddr_t offset = 0;
-	
-	for (i = 0; i < working_set_size; i++) {
-		//		working_set[i] = cos_get_vas_page();
-		//		working_set[i] = array_offset;
-		//		printc("Getting page at %x\n", (unsigned int) working_set[i]);
-		ret = mman_get_page_color(cos_spd_id(), working_set_addr + offset, 0, color_start + (i % color_range));
-		/* printc("Dereferencing page: %x\n", (unsigned int) working_set[i]); */
-		/* int x = *((int *) working_set[i]); */
-		//		ret = mman_get_page_color(cos_spd_id(), working_set[i], 0, -1);
-		offset += PAGE_SIZE;
-		if (!ret) {
-			printc("Out of memory of this color, got %d pages\n", i);
+	if (!is_thread) {
+		/* 
+		 * I don't currently know why there is always a collision on
+		 * whatever address cos_get_vas_page() returns the first time
+		 * around. I'm probably not incrementing something
+		 * correctly. For now, this works. It also sucks.
+		 */
+		cos_get_vas_page(); 
+
+		//	printc("pcolor bench core %d: calling timed_event_block\n", cos_cpuid());
+
+		//	timed_event_block(cos_spd_id(), 1);
+
+		printc("pcolor bench core %d: calling vas_mgr_expand\n", cos_cpuid());
+
+		long size =  (long) working_set_size * (long) PAGE_SIZE; 
+		working_set_addr = vas_mgr_expand(cos_spd_id(), PAGE_SIZE * 2048);
+		printc("pcolor bench: got %ld bytes of VAS space at %x\n", size, (unsigned int) working_set_addr);
+		if (working_set_addr == 0) {
+			printc("pcolor benchmark: could not get enough vaddr space to run benchmark. Exiting.\n");
 			return;
 		}
-		printc("Got page number %d at %x\n", i, (unsigned int) ret);
+	
+		printc("pcolor benchmark: Starting to get %d colored pages...\n", working_set_size);
+
+		vaddr_t offset = 0;
+	
+		for (i = 0; i < working_set_size; i++) {
+			//		working_set[i] = cos_get_vas_page();
+			//		working_set[i] = array_offset;
+			//		printc("Getting page at %x\n", (unsigned int) working_set[i]);
+			ret = mman_get_page_color(cos_spd_id(), working_set_addr + offset, 0, color_start + (i % color_range));
+			/* printc("Dereferencing page: %x\n", (unsigned int) working_set[i]); */
+			/* int x = *((int *) working_set[i]); */
+			//		ret = mman_get_page_color(cos_spd_id(), working_set[i], 0, -1);
+			offset += PAGE_SIZE;
+			if (!ret) {
+				printc("Out of memory of this color, got %d pages\n", i);
+				return;
+			}
+			printc("Got page number %d at %x\n", i, (unsigned int) ret);
+
+		}
+			is_thread = 1;
+			printc("pcolor bench: Creating thread from spd %d on core %d\n", cos_spd_id(), cos_cpuid());
+			sched_create_thd(cos_spd_id(), 0, 0, 0);
+			return;
+
 	}
 
-	//	cos_mmap_cntl(COS_MMAP_TLBFLUSH, 0, cos_spd_id(), cos_get_heap_ptr(), 0);
-
-	vaddr_t working_set_start = working_set_addr;
-
-	timed_event_block(cos_spd_id(), 1);
-
-	/* volatile int rend = 0; //global */
-
-	/* //in the startup-function before measurements */
-	/* rend++; */
-	/* while (rend < 2); */
 	
-	printc("Starting iterations\n");
+	printc("I'm the other thread from spd %d on core %d\n", cos_spd_id(), cos_cpuid());
+	vaddr_t working_set_start = working_set_addr;
+	printc("Starting iterations after block.\n");
+
+	//	timed_event_block(cos_spd_id(), 1);
+	
+	while (!rendezvous(cos_spd_id()));
+	printc("Successful rendezvous on spd %d\n", cos_spd_id());
+	
 	rdtscll(start);
 
 	for (i = 0; i < ITERATIONS; i++) {
-		//		printc("SPD %d, Iteration: %u \n", cos_spd_id(),i);
-		
+		if (i % 1000 == 0) {
+			printc("SPD %d, Iteration: %u \n", cos_spd_id(),i);
+		}
 		for (j = 0; j < (working_set_size * PAGE_SIZE) / 2; j += sizeof(int)) {
 			/* int *addr = (int *)((unsigned int) working_set_start + (unsigned int) j); */
 			/* *addr = *addr + 1; */
@@ -225,9 +129,9 @@ void cos_init(void)
 			/* if ((unsigned int)addr % PAGE_SIZE == 0) */
 			/* 	printc("pcolor bench: accessing address %x\n", (unsigned int) addr); */
 			*addr = *addr + 1;
-			/* addr = (int *)((unsigned int) working_set_start + (((unsigned int) working_set_size * PAGE_SIZE) - (unsigned int) j)) - 1; */
-			/* printc("pcolor bench: accessing address %x\n", (unsigned int) addr); */
-			/* *addr = *addr + 1; */
+			addr = (int *)((unsigned int) working_set_start + (((unsigned int) working_set_size * PAGE_SIZE) - (unsigned int) j)) - 1;
+			//			printc("pcolor bench: accessing address %x\n", (unsigned int) addr);
+			*addr = *addr + 1;
 			//			printc("pcolor bench: finished loop\n");
 					
 		}

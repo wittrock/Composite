@@ -1778,7 +1778,7 @@ extern int parent_sched_isroot(void);
 int
 sched_init(void)
 {
-//	printc("Sched init has thread %d\n", cos_get_thd_id());
+	printc("Sched init has thread %d\n", cos_get_thd_id());
 	assert(!(per_core_sched_base[cos_cpuid()].init)); // don't re-initialize. should be removed if doing recovery test. 
 
 	/* Promote us to a scheduler! */

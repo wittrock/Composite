@@ -2,13 +2,13 @@
 #define COS_CONFIG_H
 
 #include "cpu_ghz.h"
-#define NUM_CPU                2
+#define NUM_CPU                3
 #define INIT_CORE              0
 #define LINUX_CORE             NUM_CPU - 1
 
 #define CPU_TIMER_FREQ 100 // set in your linux .config
 
-#define RUNTIME                60 // seconds
+#define RUNTIME                180 // seconds
 
 // After how many seconds should schedulers print out their information?
 #define SCHED_PRINTOUT_PERIOD  29 

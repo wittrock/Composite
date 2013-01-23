@@ -84,6 +84,7 @@ boot_get_map_dsrc (vaddr_t ucap_tbl, vaddr_t sched_info, vaddr_t dest_daddr, int
 static vaddr_t
 boot_get_populate_dsrc (vaddr_t ucap_tbl, vaddr_t sched_info, vaddr_t lsrc, int *use_kern_mem) {
 	if (lsrc == ucap_tbl || lsrc == sched_info) {
+		printc("populating dsrc for kernel in regular booter\n");
 		*use_kern_mem = 1;
 	}
 	return NULL;

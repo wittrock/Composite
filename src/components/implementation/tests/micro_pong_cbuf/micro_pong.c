@@ -11,6 +11,17 @@
 #define printv(fmt,...) 
 #endif
 
+volatile int first_spdid = 0;
+
+int rendezvous(int spdid) {
+	if (first_spdid == 0) {
+		first_spdid = spdid;
+	} else if (spdid != first_spdid) { 
+		first_spdid = spdid;
+		return 1;
+	}
+	return 0;
+}
 
 void call(void)
 {

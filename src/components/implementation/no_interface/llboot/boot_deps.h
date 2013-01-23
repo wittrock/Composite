@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define NUM_KERN_VISIBLE_PAGES 12
+#define NUM_KERN_VISIBLE_PAGES 64
 
 void* cos_kernel_visible_memory[NUM_KERN_VISIBLE_PAGES];
 int kern_vis_mem_boundary = 0;
@@ -370,7 +370,7 @@ static void *
 boot_get_map_dsrc (vaddr_t ucap_tbl, vaddr_t sched_info, vaddr_t dest_daddr, int *mman_flags) {
 	//	printc("Calling get_map_dsrc %x\n", (char *) dest_daddr);
 	void *dsrc;
-	if (dest_daddr == ucap_tbl || dest_daddr == sched_info) {
+	if (dest_daddr == ucap_tbl || (dest_daddr >= sched_info && dest_daddr <= (sched_info + (PAGE_SIZE * (NUM_CPU + 1))))) {
 		*mman_flags = MMAP_KERN;
 		/* jww; use memory allocator you write
 		 * to get a vas from within the
@@ -395,7 +395,7 @@ boot_get_populate_dsrc (vaddr_t ucap_tbl, vaddr_t sched_info, vaddr_t lsrc, int 
 	//	printc("Calling get_populate_dsrc from spd %d | %x\n", cos_spd_id(), (char *) lsrc);
 	vaddr_t dsrc;
 	int mman_flags = 0;
-	if (lsrc == ucap_tbl || lsrc == sched_info) {
+	if (lsrc == ucap_tbl || (lsrc >= sched_info && lsrc <= (sched_info + (PAGE_SIZE * (NUM_CPU + 1))))) {
 		int kern_vis_mem_index = boot_use_kern_vis_vas_page();
 		assert(kern_vis_mem_index != -1);
 		*use_kern_mem = 1;
@@ -421,7 +421,7 @@ cos_upcall_fn(upcall_type_t t, void *arg1, void *arg2, void *arg3)
 {
 	/* printc("core %ld: <<cos_upcall_fn as %d (type %d, CREATE=%d, DESTROY=%d, FAULT=%d)>>\n", */
 	/*        cos_cpuid(), cos_get_thd_id(), t, COS_UPCALL_CREATE, COS_UPCALL_DESTROY, COS_UPCALL_UNHANDLED_FAULT); */
-	assert(NUM_KERN_VISIBLE_PAGES == NCOMPS * 2);
+	//assert(NUM_KERN_VISIBLE_PAGES == NCOMPS * 3);
 	switch (t) {
 	case COS_UPCALL_CREATE:
 //		cos_argreg_init();
@@ -432,9 +432,10 @@ cos_upcall_fn(upcall_type_t t, void *arg1, void *arg2, void *arg3)
 		llboot_thd_done();
 		break;
 	case COS_UPCALL_UNHANDLED_FAULT:
-		printc("Fault detected by the llboot component in thread %d: "
-		       "Major system error.\n", cos_get_thd_id());
-		BUG();
+		/* printc("Fault detected by the llboot component in thread %d: " */
+		/*        "Major system error.\n", cos_get_thd_id()); */
+		/* BUG(); */
+		return;
 	default:
 		while (1) ;
 		return;

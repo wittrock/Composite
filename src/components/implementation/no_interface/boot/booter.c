@@ -238,7 +238,6 @@ static int boot_spd_map_memory(struct cobj_header *h, spdid_t spdid, vaddr_t com
 				printc("mapping sched_info for %d: %x\n", spdid, dest_daddr);
 			}
 
-
 			if ((vaddr_t)dsrc != __mman_get_page(cos_spd_id(), (vaddr_t)dsrc, mman_flags)) {
 				printc("JWW: error in boot_spd_map_memory mman_get_page: dsrc: %x\n", dsrc);
 				BUG();

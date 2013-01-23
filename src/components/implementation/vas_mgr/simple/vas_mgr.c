@@ -72,7 +72,7 @@ vaddr_t vas_mgr_expand(spdid_t spd, long amnt)
 		unsigned long s = a, s_idx = i;
 		int found = 1;
 
-		printc("i=%ld, %ld\n", i, nentries);
+		//		printc("i=%ld, %ld\n", i, nentries);
 
 		for (; i < (s_idx + nentries) ; a += SERVICE_SIZE, i++) {
 			if (vas->s[i]) {
@@ -81,9 +81,9 @@ vaddr_t vas_mgr_expand(spdid_t spd, long amnt)
 			}
 			printc("a\n");
 		}
-		printc("found %d\n", found);
-		a -= SERVICE_SIZE;
-		i--;
+		//		printc("found %d\n", found);
+		/* a -= SERVICE_SIZE; */
+		/* i--; */
 		if (!found) continue;
 		
 		if (cos_vas_cntl(COS_VAS_SPD_EXPAND, spd, s, amnt)) {
